@@ -1,0 +1,150 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,100..900;1,100..900&display=swap');
+
+* {
+    font-family: "Archivo", sans-serif;
+}
+
+.row {
+    margin: 0 !important;
+}
+input, select, textarea {
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 14px;
+    border: 1px solid #DDE5E9;
+    border-radius: 10px;
+    background-color: transparent;
+    width: 100%;
+    margin-bottom: 20px;
+    color: #222;
+}
+
+label {
+    color: #707A8F;
+}
+
+::placeholder {
+    color: #707A8F;
+    font-size: 14px;
+}
+
+.log-btn, .g-btn {
+    outline: none;
+    border: 0;
+    box-shadow: none;
+    padding: 10px 15px;
+    background-color: #2E3192;
+    color: #fff;
+    border-radius: 10px;
+}
+
+.g-btn {
+    background: #fff;
+    color: #707A8F;
+}
+
+.l-img {
+    width: 95%;
+    min-height: 100%
+}
+
+.line-with-text {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    margin: 20px 0;
+}
+  
+.line-with-text:before,
+.line-with-text:after {
+    content: "";
+    flex: 1;
+    border-bottom: 1px solid #ccc;
+}
+  
+.line-text {
+    padding: 0 10px;
+    color: #666;
+}
+
+.popup-box {
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+}
+  
+.popup-btn {
+    background: none;
+    border: none;
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+  
+.popup-btn:hover {
+    background: #f5f5f5;
+}
+
+.profile:hover {
+    background: #2E3192;
+    border-radius: 10px;
+    padding: 10px;
+    color: #fff;
+}
+
+.main-content {
+    transition: margin-left 300ms;
+    margin-left: 232px;
+    background: #F8F8F9;
+    height: 100vh;
+}
+
+.icon-hover:hover {
+    background: #2E3192;
+    color: #fff;
+    border-radius: 15px;
+}
+
+.dash-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-column-gap: 1rem;
+}
+  
+.card-single {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+    width: 100%;
+    margin-right: 10px;
+}
+  
+
+@media screen and (max-width: 992px) {
+    .main-content {
+        margin-left: 0;
+    }
+
+    .dash-cards {
+        grid-template-columns: repeat(1, 1fr);
+        grid-column-gap: 1rem;
+    }
+
+    .card-single {
+        margin-bottom: 1rem;
+    }
+}
+
+@media screen and (min-width: 1500px) {
+    .l-img {
+        width: 100%;
+        min-height: 100%
+    }
+    
+}
+
