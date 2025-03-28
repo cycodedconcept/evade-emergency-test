@@ -1,12 +1,106 @@
-import React, {useState} from 'react'
+import React, {useState, useEffect} from 'react'
 import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPhone, faCrosshairs, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import CardComponent from './reusables/CardComponent';
+import Table from "./reusables/Table"
 import { Em, War, Com, Pad, Pink, Pink2, Org, Org2, Act, Act2 } from '../assets';
+
+const containerStyle = {
+  width: "100%",
+  height: "400px",
+};
+
 
 const Card = () => {
   const [selectedDate, setSelectedDate] = useState("");
+  const [currentLocation, setCurrentLocation] = useState(null);
+  
+
+  const columns = [
+    {header: "INDEX", accessor: ""},
+    { header: "EMERGENCY ID", accessor: "id" },
+    { header: "DEVICE ID", accessor: "deviceid" },
+    { header: "NAME", accessor: "name" },
+    { header: "DATE/TIME", accessor: "date" },
+    { header: "LOCATION", accessor: "location" },
+    { header: "TYPE", accessor: "accident_type" },
+    { header: "SEVERITY", accessor: "severity" },
+    { header: "STATUS", accessor: "closed_status" },
+    { header: "ACTION", accessor: "name" },
+  ];
+
+  const data = [
+    {
+      id: "EMG001",
+      deviceid: "DEV123",
+      name: "John Doe",
+      date: "2025-03-15 10:30 AM",
+      location: "40.7128° N, 74.0060° W (New York, NY)",
+      accident_type: "Fatal Collision",
+      severity: "High",
+      closed_status: "Open",
+    },
+    {
+      id: "EMG002",
+      deviceid: "DEV124",
+      name: "Jane Smith",
+      date: "2025-03-15 12:15 PM",
+      location: "34.0522° N, 118.2437° W (Los Angeles, CA)",
+      accident_type: "Minor Collision",
+      severity: "Low",
+      closed_status: "Closed",
+    },
+    {
+      id: "EMG003",
+      deviceid: "DEV125",
+      name: "Michael Johnson",
+      date: "2025-03-15 3:45 PM",
+      location: "41.8781° N, 87.6298° W (Chicago, IL)",
+      accident_type: "Pedestrian Hit",
+      severity: "Medium",
+      closed_status: "Pending",
+    },
+    {
+      id: "EMG004",
+      deviceid: "DEV126",
+      name: "Sarah Williams",
+      date: "2025-03-15 5:00 PM",
+      location: "29.7604° N, 95.3698° W (Houston, TX)",
+      accident_type: "Vehicle Overturn",
+      severity: "High",
+      closed_status: "Open",
+    },
+    {
+      id: "EMG005",
+      deviceid: "DEV127",
+      name: "David Brown",
+      date: "2025-03-15 7:20 PM",
+      location: "33.4484° N, 112.0740° W (Phoenix, AZ)",
+      accident_type: "Head-on Collision",
+      severity: "Critical",
+      closed_status: "Closed",
+    }
+  ];
+  
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => console.error("Error fetching location:", error),
+        { enableHighAccuracy: true } 
+      );
+    } else {
+      console.error("Geolocation is not supported by this browser.");
+    }
+  }, []);
   return (
     <>
       <div className="d-block d-lg-flex justify-content-between p-3 mt-3 text-center">
@@ -103,11 +197,29 @@ const Card = () => {
         image={Org}
         value="120" />
 
-        <CardComponent 
+        <CardComponent
         title="Active Devices"
         imageBase={Pink2}
         image={Pink}
         value="15" />
+      </div>
+
+      <div className="map-section px-3 py-2  mt-5" style={{background: "#fff"}}>
+        <p>Device Location</p>
+        <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={currentLocation || { lat: 37.7749, lng: -122.4194 }}
+            zoom={currentLocation ? 15 : 10}
+        >
+           {currentLocation && <Marker position={currentLocation} />}
+          </GoogleMap>
+        </LoadScript>
+      </div>
+
+      <div className="recent-section p-3">
+        <p>Recent Emergencies</p>
+        <Table columns={columns} data={data} />
       </div>
     </>
   )

@@ -23,11 +23,12 @@ import Org from "./org.png";
 import Org2 from "./org2.png";
 import Pink from "./pink.png";
 import Pink2 from "./pink2.png";
-
-
+import Eye from "./eye.png";
+import Pencil from "./pencil.png";
+import Phone from "./phone-call.png"
 
 export {
     Logo, Side, Google, Al, Al2, Ch, Ch2, De, De2, 
     Help, Help2, La, La2, Logo2, Avatar, Em, War, Com, Pad, Act, Act2,
-    Org, Org2, Pink, Pink2
+    Org, Org2, Pink, Pink2, Eye, Phone, Pencil
 }
