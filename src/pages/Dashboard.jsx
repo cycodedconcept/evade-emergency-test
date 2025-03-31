@@ -1,4 +1,5 @@
 import React, {useState, useEffect} from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { faCalendarAlt, faMessage, faBell } from "@fortawesome/free-regular-svg-icons"
@@ -7,8 +8,15 @@ import "react-datepicker/dist/react-datepicker.css";
 import Sidebar from './Sidebar';
 import Card from './Card';
 import Emergencies from './Emergencies';
+import Device from './Device'
+import { dashboardData } from '../features/userSlice';
+
 
 const Dashboard = () => {
+  const {loading, error, dataItem } = useSelector((state) => state.user);
+  const dispatch = useDispatch();
+  const tokenItem = localStorage.getItem("item");
+  const token = JSON.parse(tokenItem)
   const [activeMenu, setActiveMenu] = useState("Dashboard");
   const [selectedDate, setSelectedDate] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -17,8 +25,16 @@ const Dashboard = () => {
   const [countries, setCountries] = useState([]);
   const [selectedCountry, setSelectedCountry] = useState({
     name: "Nigeria",
-    flag: "https://flagcdn.com/w40/ng.png", // Default to Nigeria 🇳🇬
+    flag: "https://flagcdn.com/w40/ng.png",
   });
+
+
+  useEffect(() => {
+    if (token) {
+      dispatch(dashboardData({token}))
+    }
+  }, [dispatch, token])
+
 
 
   useEffect(() => {
@@ -45,13 +61,22 @@ const Dashboard = () => {
     padding: "10px",
   };
 
-  const notifications = [
-    "New order received",
-    "User John sent a message",
-    "Product stock is low",
-    "New admin registered",
-    "System update available",
-  ];
+  const notifications = dataItem?.notifications?.map((item) => (
+    <div className="card-item" key={item.id}>
+      <div className="d-flex justify-content-between">
+        <p>Device ID:</p>
+        <p>{item.deviceid}</p>
+      </div>
+      <div className="d-flex justify-content-between">
+        <p style={{fontSize: '10px'}}>Accident Type:</p>
+        <small style={{fontSize: '10px'}}>{item.accident_type}</small>
+      </div>
+      <div className="d-flex justify-content-between">
+        <p style={{fontSize: '10px'}}>Nature of request:</p>
+        <small style={{fontSize: '10px'}}>{item.nature_of_request}</small>
+      </div>
+    </div>
+  ))
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -59,8 +84,8 @@ const Dashboard = () => {
         return <Card />;
       case "Emergencies":
         return <Emergencies />;
-      case "Devices":
-        return <Devices />;
+      case "Device":
+        return <Device />;
       case "Reports & Analysis":
         return <Reports />;
       default:
@@ -163,7 +188,7 @@ const Dashboard = () => {
                         border: "2px solid white",
                         }}
                     >
-                        {notifications.length}
+                        {dataItem?.notifications?.length}
                     </span>
 
                     {showNotifications && (
@@ -173,11 +198,13 @@ const Dashboard = () => {
                             top: "35px",
                             right: "0",
                             width: "250px",
+                            maxHeight: "400px",
+                            overflowY: "auto",
                             background: "white",
                             borderRadius: "10px",
                             boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                             zIndex: "1000",
-                            padding: "10px",
+                            padding: "5px",
                         }}
                         >
                         <h6 style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}>

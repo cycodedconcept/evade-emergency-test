@@ -4,7 +4,7 @@ import '../style.css';
 import { Logo, Side, Google } from '../assets';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
-import { Form, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../features/userSlice';
 import Swal from 'sweetalert2';
 
@@ -17,7 +17,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const { loading, error, success } = useSelector((state) => state.user);
+  const { loading } = useSelector((state) => state.user);
 
 
   const togglePasswordVisibility = () => {
@@ -154,7 +154,7 @@ const Login = () => {
                         </div>
                         <span>Logging in... </span>
                       </>
-                      ) : ('Sign Up')
+                      ) : ('Log In')
                     }
                     
                   </button>

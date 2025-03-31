@@ -11,7 +11,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
     const menuItems = [
         { name: 'Dashboard', icon: La, activeIcon: La2 },
         { name: 'Emergencies', icon: Al, activeIcon: Al2 },
-        { name: 'Devices', icon: De, activeIcon: De2 },
+        { name: 'Device', icon: De, activeIcon: De2 },
         { name: 'Reports & Analysis', icon: Ch, activeIcon: Ch2 },
     ];
 
