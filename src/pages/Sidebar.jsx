@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Al, Al2, Ch, Ch2, De, De2, Help, Help2, La, La2, Logo2, Avatar } from '../assets';
+import { Al, Al2, Ch, Ch2, De, De2, Help, Help2, La, La2, Logo2, Avatar, Bel, Bel2 } from '../assets';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { BsThreeDotsVertical, BsPencil, BsLock, BsBoxArrowRight } from "react-icons/bs";
@@ -13,6 +13,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
         { name: 'Emergencies', icon: Al, activeIcon: Al2 },
         { name: 'Device', icon: De, activeIcon: De2 },
         { name: 'Reports & Analysis', icon: Ch, activeIcon: Ch2 },
+        { name: 'Notifications', icon: Bel2, activeIcon: Bel }
     ];
 
     const helpCenterItem = { name: 'Help Center', icon: Help2, activeIcon: Help };
@@ -35,6 +36,12 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
           <span style={{ color: activeMenu === item.name ? "#fff" : "#707A8F" }}>{item.name}</span>
         </div>
     );
+
+    const handleLogOut = () => {
+        localStorage.clear();
+        
+        window.location.href = '/';
+    };
     
 
     return (
@@ -143,7 +150,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
                 <BsLock style={{ marginRight: "8px" }} />
                 Edit Password
               </button>
-              <button className="popup-btn" style={{ color: "red" }}>
+              <button className="popup-btn" style={{ color: "red" }} onClick={handleLogOut}>
                 <BsBoxArrowRight style={{ marginRight: "8px" }} />
                 Sign Out
               </button>

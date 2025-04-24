@@ -1,8 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
-import loginReducer  from "../features/userSlice"
+import loginReducer  from "../features/userSlice";
+import deviceReducer from "../features/deviceSlice"
 const store = configureStore({
     reducer: {
-      user: loginReducer
+      user: loginReducer,
+      device: deviceReducer
     },
 });
   

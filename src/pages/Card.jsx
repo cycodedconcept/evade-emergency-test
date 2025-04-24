@@ -4,10 +4,10 @@ import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPhone, faCrosshairs, faCalendar } from '@fortawesome/free-solid-svg-icons';
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
-import CardComponent from './reusables/CardComponent';
+import CardCarousel from './reusables/CardCarousel';
 import Table from "./reusables/Table"
 import { dashboardData } from '../features/userSlice';
-import { Em, War, Com, Pad, Pink, Pink2, Org, Org2, Act, Act2, Logo } from '../assets';
+import { Em, War, Logo } from '../assets';
 
 const containerStyle = {
   width: "100%",
@@ -17,18 +17,33 @@ const containerStyle = {
 const Card = () => {
   const dispatch = useDispatch();
   const tokenItem = localStorage.getItem("item");
-  const token = JSON.parse(tokenItem);
+  const token = tokenItem ? JSON.parse(tokenItem) : null;
   const {loading, error, dataItem } = useSelector((state) => state.user);
   const [selectedDate, setSelectedDate] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [mode, setMode] = useState(false);
-  const [details, setDetails] = useState({})
+  const [details, setDetails] = useState({});
 
   useEffect(() => {
     if (token) {
       dispatch(dashboardData({token}))
+        .unwrap()
+        .then(data => {
+          console.log('Dashboard data loaded successfully');
+        })
+        .catch(error => {
+          console.error('Failed to load dashboard data:', error);
+          
+          // Handle authentication errors
+          if (typeof error === 'string' && error.includes('Authentication failed')) {
+            // You could redirect to login or show error message
+            alert('Your session has expired. Please log in again.');
+          }
+        });
+    } else {
+      console.error('No token found in localStorage');
     }
-  }, [dispatch, token])
+  }, [dispatch, token]);
   
   const columns = [
     { header: "INDEX", accessor: "index" },
@@ -42,40 +57,51 @@ const Card = () => {
     { header: "ACTION", accessor: "action" }
   ];
 
+  // Safe data transformation with error handling
   const formattedTableData = [];
   if (dataItem && dataItem.records && Array.isArray(dataItem.records)) {
     dataItem.records.forEach((item, index) => {
-      formattedTableData.push({
-        index: index + 1,
-        deviceid: item.deviceid || "N/A",
-        name: item.name || "-----",
-        accident_type: item.accident_type || "-----",
-        nature_of_request: item.nature_of_request || "-----",
-        date: item.date || "-----",
-        time: item.time || "-----",
-        status: {
-          isActive: item.closed_status !== 0,
-          text: item.closed_status === 0 ? "in-active" : "active"
-        },
-        action: "action",
-        originalData: item
-      });
+      if (item) { // Make sure item exists
+        formattedTableData.push({
+          index: index + 1,
+          deviceid: item.deviceid || "N/A",
+          name: item.name || "-----",
+          accident_type: item.accident_type || "-----",
+          nature_of_request: item.nature_of_request || "-----",
+          date: item.date || "-----",
+          time: item.time || "-----",
+          closed_status: item.closed_status, // For the Table component to handle
+          status: {
+            isActive: item.closed_status !== 0,
+            text: item.closed_status === 0 ? "in-active" : "active"
+          },
+          action: "action",
+          id: item.id
+        });
+      }
     });
   }
 
   const hideModal = () => {
-    setMode(false)
-  }
+    setMode(false);
+  };
 
   const handleView = (row) => {
     const recordId = row.id;
-    setMode(true)
     
-    const originalRecord = dataItem.records.find(record => record.id === recordId);
-    setDetails(originalRecord)
-    
-    console.log("Original record:", originalRecord);
-    
+    if (dataItem && dataItem.records && Array.isArray(dataItem.records)) {
+      const originalRecord = dataItem.records.find(record => record.id === recordId);
+      
+      if (originalRecord) {
+        setDetails(originalRecord);
+        setMode(true);
+        console.log("Original record:", originalRecord);
+      } else {
+        console.error("Record not found with ID:", recordId);
+      }
+    } else {
+      console.error("No records data available");
+    }
   };
 
   useEffect(() => {
@@ -87,19 +113,80 @@ const Card = () => {
             lng: position.coords.longitude,
           });
         },
-        (error) => console.error("Error fetching location:", error),
-        { enableHighAccuracy: true } 
+        (error) => {
+          console.error("Error fetching location:", error);
+          
+          // Handle different error cases
+          if (error.code === 1) { // Permission denied
+            // Set default location or use the device's location from API
+            if (details && details.lat && details.log) {
+              setCurrentLocation({
+                lat: parseFloat(details.lat),
+                lng: parseFloat(details.log)
+              });
+            } else {
+              // Set to a default location (e.g., center of your operational area)
+              setCurrentLocation({ lat: 6.5244, lng: 3.3792 }); // Default to Lagos, Nigeria
+            }
+            
+            // Optionally show a friendly message to the user
+            Swal.fire({
+              icon: 'info',
+              title: 'Location Access Denied',
+              text: 'We need access to your location to show you nearby information. You can enable this in your browser settings.',
+              confirmButtonColor: '#2E3192'
+            });
+          } else if (error.code === 2) { // Position unavailable
+            // Handle position unavailable
+            Swal.fire({
+              icon: 'error',
+              title: 'Location Unavailable',
+              text: 'Your location information is currently unavailable.',
+              confirmButtonColor: '#2E3192'
+            });
+          } else if (error.code === 3) { // Timeout
+            // Handle timeout
+            Swal.fire({
+              icon: 'warning',
+              title: 'Location Request Timed Out',
+              text: 'Please try again later.',
+              confirmButtonColor: '#2E3192'
+            });
+          }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } 
       );
     } else {
       console.error("Geolocation is not supported by this browser.");
+      Swal.fire({
+        icon: 'error',
+        title: 'Geolocation Not Supported',
+        text: 'Your browser does not support geolocation features.',
+        confirmButtonColor: '#2E3192'
+      });
     }
-  }, []);
+}, [details]);
+
+  // If data is loading or there's an error, show appropriate UI
+  if (loading) {
+    return <div className="loading-container">Loading dashboard data...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="error-container">
+        <h3>Error loading dashboard</h3>
+        <p>{typeof error === 'string' ? error : 'An unexpected error occurred'}</p>
+        <button onClick={() => dispatch(dashboardData({ token }))}>Retry</button>
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="d-block d-lg-flex justify-content-between p-3 mt-3 text-center">
         <div>
-          <h3 style={{color: '#14181F'}}>Welcome {dataItem?.details?.name}</h3>
+          <h3 style={{color: '#14181F'}}>Welcome {dataItem?.details?.name || 'User'}</h3>
           <p style={{color: '#707A8F'}}>Provides an overview of key metrics</p>
         </div>
         <div>
@@ -142,20 +229,20 @@ const Card = () => {
         </div>
       </div>
       
-      <div className="alert-box d-flex justify-content-between p-3" style={{border: "1px solid #FE5B65", borderRadius: "12px"}}>
+      <div className="alert-box d-block d-lg-flex justify-content-between p-3" style={{border: "1px solid #FE5B65", borderRadius: "12px"}}>
         <div className='d-flex'>
           <div>
             <img src={Em} alt="" className='mx-3 my-3'/>
           </div>
           <div>
-            <div className="d-flex">
+            <div className="d-block d-lg-flex">
               <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
               <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
                 <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: 09065435623
               </p>
             </div>
             <p style={{fontWeight: "600", marginBottom: "0"}}>Fatal Collision</p>
-            <div className="d-flex">
+            <div className="d-block d-lg-flex">
               <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
               <small style={{color: "#707A8F", marginRight: "15px"}}>Location: 40.7128° N, 74.0060° W (New York, NY)</small>
               <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
@@ -170,143 +257,121 @@ const Card = () => {
         </div>
       </div>
 
-      <div className="dash-cards mt-5">
-        <CardComponent 
-          title="Online Devices"
-          imageBase={Pad}
-          image={Com}
-          value={dataItem?.counts?.onlinedevice || 0} 
-        />
-
-        <CardComponent 
-          title="Offline Devices"
-          imageBase={Act2}
-          image={Act}
-          value={dataItem?.counts?.offlinedevice || 0} 
-        />
-
-        <CardComponent 
-          title="SOS"
-          imageBase={Org2}
-          image={Org}
-          value={dataItem?.counts?.sos || 0} 
-        />
-
-        <CardComponent
-          title="Accident Detected"
-          imageBase={Pink2}
-          image={Pink}
-          value={dataItem?.counts?.accident_detected || 0} 
-        />
-      </div>
+      {/* Card Carousel */}
+      <CardCarousel devices={dataItem} />
 
       <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
         <p>Device Location</p>
         <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
           <GoogleMap
             mapContainerStyle={containerStyle}
-            center={currentLocation || { lat: 37.7749, lng: -122.4194 }}
-            zoom={currentLocation ? 15 : 10}
+            center={
+              currentLocation || 
+              (details && details.lat && details.log 
+                ? { lat: parseFloat(details.lat), lng: parseFloat(details.log) } 
+                : { lat: 6.5244, lng: 3.3792 }) // Default to Lagos, Nigeria
+            }
+            zoom={10}
           >
             {currentLocation && <Marker position={currentLocation} />}
+            {!currentLocation && details && details.lat && details.log && 
+              <Marker 
+                position={{ lat: parseFloat(details.lat), lng: parseFloat(details.log) }} 
+                icon={{
+                  url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                }}
+              />
+            }
           </GoogleMap>
         </LoadScript>
       </div>
 
       <div className="recent-section p-3">
         <p>Recent Emergencies</p>
-        {loading ? (
-          <div>Loading data...</div>
-        ) : error ? (
-          <div>Error loading data: {error}</div>
-        ) : dataItem && dataItem.records ? (
-          <Table columns={columns} data={dataItem.records} onView={handleView}/>
+        {!dataItem || !dataItem.records ? (
+          <div>No emergency data available</div>
         ) : (
-          <div>No data available</div>
+          <Table 
+            columns={columns} 
+            data={dataItem.records} 
+            onView={handleView}
+          />
         )}
       </div>
 
-      {mode ? (
-        <>
-          <div className="modal-overlay">
-            <div className="modal-content2">
-              <div className="head-mode">
-                <h6 style={{color: '#2E3192'}}>Emergency Details</h6>
-                <button className="modal-close" onClick={hideModal}>&times;</button>
+      {mode && details && (
+        <div className="modal-overlay">
+          <div className="modal-content2">
+            <div className="head-mode">
+              <h6 style={{color: '#2E3192'}}>Emergency Details</h6>
+              <button className="modal-close" onClick={hideModal}>&times;</button>
+            </div>
+            <div className="modal-body">
+              <div className="d-flex justify-content-between">
+                <img src={Logo} alt="" />
+                <p>{details.deviceid || 'N/A'}</p>
               </div>
-              {details ? (
-                <>
-                  <div className="modal-body">
-                    <div className="d-flex justify-content-between">
-                      <img src={Logo} alt="" />
-                      <p>{details.deviceid}</p>
-                    </div>
-                    <hr />
+              <hr />
 
-                    <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
-                      <div className='w-100 px-lg-3 px-0 cta' style={{borderRight: '2px solid #e7e8fd'}}>
-                        <div className="d-flex justify-content-between">
-                          <p>Accident Type: </p>
-                          <p>{details.accident_type}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Nature of Request: </p>
-                          <p>{details.nature_of_request}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Name: </p>
-                          <p>{details.name || 'none'}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Priority: </p>
-                          <p className={details.priority}>{details.priority || 'none'}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Assigned At: </p>
-                          <p>{details.assigned_at || 'none'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className='w-100'>
-                        <div className="d-flex justify-content-between">
-                          <p>Longitute: </p>
-                          <p>{details.log}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Latitude: </p>
-                          <p>{details.lat}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Date: </p>
-                          <p>{details.date}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Time: </p>
-                          <p>{details.time}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Created At: </p>
-                          <p>{details.created_at}</p>
-                        </div>
-                        <div className="d-flex justify-content-between">
-                          <p>Status: </p>
-                          <p className={details.closed_status === 0 ? 'Inactive' : 'Active'}>{details.closed_status === 0 ? 'Inactive' : 'Active'}</p>
-                        </div>
-                      </div>
-                    </div>
+              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
+                <div className='w-100 px-lg-3 px-0 cta' style={{borderRight: '2px solid #e7e8fd'}}>
+                  <div className="d-flex justify-content-between">
+                    <p>Accident Type: </p>
+                    <p>{details.accident_type || 'N/A'}</p>
                   </div>
-                </>
-              ) : (
-                <>
-                  <p>Loading data</p>
-                </>
-              )}
+                  <div className="d-flex justify-content-between">
+                    <p>Nature of Request: </p>
+                    <p>{details.nature_of_request || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Name: </p>
+                    <p>{details.name || 'none'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Priority: </p>
+                    <p className={details.priority}>{details.priority || 'none'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Assigned At: </p>
+                    <p>{details.assigned_at || 'none'}</p>
+                  </div>
+                </div>
+                
+                <div className='w-100'>
+                  <div className="d-flex justify-content-between">
+                    <p>Longitute: </p>
+                    <p>{details.log || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Latitude: </p>
+                    <p>{details.lat || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Date: </p>
+                    <p>{details.date || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Time: </p>
+                    <p>{details.time || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Created At: </p>
+                    <p>{details.created_at || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Status: </p>
+                    <p className={details.closed_status === 0 ? 'Inactive' : 'Active'}>
+                      {details.closed_status === 0 ? 'Inactive' : 'Active'}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </>
-      ) : ('')}
+        </div>
+      )}
     </>
-  )
-}
+  );
+};
 
-export default Card
+export default Card;

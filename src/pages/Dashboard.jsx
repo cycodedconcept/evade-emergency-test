@@ -8,7 +8,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import Sidebar from './Sidebar';
 import Card from './Card';
 import Emergencies from './Emergencies';
-import Device from './Device'
+import Reports from './Reports'
+import Device from './Device';
+import Notifications from './Notifications';
 import { dashboardData } from '../features/userSlice';
 
 
@@ -88,6 +90,8 @@ const Dashboard = () => {
         return <Device />;
       case "Reports & Analysis":
         return <Reports />;
+      case "Notifications" :
+        return <Notifications /> 
       default:
         return <Card />;
     }

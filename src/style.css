@@ -50,7 +50,7 @@ label {
     font-size: 14px;
 }
 
-.log-btn, .g-btn, .inactive, .Inactive, .d-btn {
+.log-btn, .g-btn, .inactive, .Inactive, .d-btn, .active, .Active, .offline, .online, .ca-btn, .s-btn {
     outline: none;
     border: 0;
     box-shadow: none;
@@ -60,9 +60,33 @@ label {
     border-radius: 10px;
 }
 
-.inactive, .Inactive {
+.ca-btn, .s-btn {
+    background: #fff;
+    color: #9898b1;
+    border: 1px solid #9898b1;
+    width: 100%;
+}
+
+.s-btn {
+    background: #E8E8E9;
+    color: #2E3192;
+    border: 1px solid #E8E8E9;
+}
+
+.ca-btn:hover, .s-btn:hover {
+    background: #2E3192;
+    color: #fff;
+}
+
+.inactive, .Inactive, .active, .Active, .offline {
     color: #FE9431;
     background: #FFDEBF;
+    padding: 5px;
+}
+
+.active, .Active, .online  {
+    color: #15AC77;
+    background: #B6E5D5;
     padding: 5px;
 }
 
@@ -228,7 +252,7 @@ tbody tr td:last-child {
 
 .table-content {
     background: #fff;
-    height: 300px;
+    /* height: 700px; */
     width: 100%;
 }
 
@@ -284,6 +308,97 @@ hr {
 .NON_FATAL {
     color: #15AC77;
 }
+
+.page-item.active .page-link {
+    background: #2E3192 !important;
+    color: #fff !important;
+    box-shadow: none !important;
+}
+
+.fig {
+    margin: 15% auto;
+}
+
+
+/* carousel */
+
+/* Add these styles to your CSS file */
+
+.card-carousel-container {
+    margin: 2rem 0;
+    position: relative;
+  }
+  
+  .swiper {
+    padding: 14px !important;
+  }
+  /* Customize Swiper navigation buttons */
+  .swiper-button-next,
+  .swiper-button-prev {
+    color: #2E3192; /* Use your primary color */
+    background: rgba(255, 255, 255, 0.8);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  .swiper-button-next:after,
+  .swiper-button-prev:after {
+    font-size: 18px;
+    font-weight: bold;
+  }
+  
+  /* Customize pagination bullets */
+  .swiper-pagination-bullet {
+    width: 10px;
+    height: 10px;
+    background: #ccc;
+    opacity: 1;
+  }
+  
+  .swiper-pagination-bullet-active {
+    background: #2E3192; /* Use your primary color */
+  }
+  
+  /* Add animation to slides */
+  .swiper-slide {
+    transition: transform 0.3s ease;
+  }
+  
+  .swiper-slide-active {
+    transform: scale(1.02);
+  }
+  
+  /* Make sure CardComponent looks good in the carousel */
+  .swiper-slide .card-component {
+    height: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .swiper-slide .card-component:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  }
+  
+  /* Add responsive margins */
+  @media (max-width: 768px) {
+    .card-carousel-container {
+      margin: 1rem 0;
+    }
+    
+    .swiper-button-next,
+    .swiper-button-prev {
+      width: 32px;
+      height: 32px;
+    }
+  }
   
 
 @media screen and (max-width: 992px) {
@@ -302,6 +417,10 @@ hr {
 
     .cta {
         border-right: none !important;
+    }
+
+    .spli {
+        width: 100% !important;
     }
 }
 
