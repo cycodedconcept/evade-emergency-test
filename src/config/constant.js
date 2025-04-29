@@ -1,1 +1,1 @@
-export const API_URL = "https://zubitechnologies.com"
+export const API_URL = "http://zubitechnologies.com"
