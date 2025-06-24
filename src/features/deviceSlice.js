@@ -88,6 +88,25 @@ export const getDetails = createAsyncThunk(
             return rejectWithValue(error.message || "Something went wrong");
         }
     }
+);
+
+export const closeDevice = createAsyncThunk(
+    'device/closeDevice',
+    async ({token, formData}, { rejectWithValue }) => {
+        try {
+            const response = await axios.post(`${API_URL}/ads_apis/api/close_case`, formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+            return response.data;
+        } catch (error) {
+            if (error.response && error.response.data) {
+                return rejectWithValue(error.response.data);
+            }
+            return rejectWithValue(error.message || "Something went wrong");
+        }
+    }
 )
 
 const deviceSlice = createSlice({
@@ -149,6 +168,20 @@ const deviceSlice = createSlice({
             state.detailsItem = action.payload;
         })
         .addCase(getDetails.rejected, (state, action) => {
+            state.loading = false;
+            state.success = false;
+            state.error = action.payload;
+        })
+        .addCase(closeDevice.pending, (state) => {
+            state.loading = true;
+            state.success = false;
+            state.error = null;
+        })
+        .addCase(closeDevice.fulfilled, (state, action) => {
+            state.loading = false;
+            state.success = action.payload;
+        })
+        .addCase(closeDevice.rejected, (state, action) => {
             state.loading = false;
             state.success = false;
             state.error = action.payload;

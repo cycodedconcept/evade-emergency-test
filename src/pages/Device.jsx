@@ -2,7 +2,7 @@ import React, {useState, useEffect} from 'react'
 import CardCarousel from './reusables/CardCarousel';
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import { useDispatch, useSelector } from 'react-redux';
-import { getDevices, addDevice, updateDevice, getDetails } from '../features/deviceSlice';
+import { getDevices, addDevice, updateDevice, getDetails, closeDevice } from '../features/deviceSlice';
 import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import { Logo2 } from '../assets';
@@ -112,11 +112,8 @@ const Device = () => {
       setMode(true)
       console.log(devId)
       dispatch(getDetails({token, device_id: devId}))
-      // const devRecord = localStorage.getItem("dev");
-      // const dev = JSON.parse(devRecord);
-      // const deviceData = dev.find(dev => dev.id === devId);
       setDetails(detailsItem);
-      console.log(detailsItem.accident_history)
+      console.log(detailsItem)
 
     };
 
@@ -203,7 +200,7 @@ const Device = () => {
           didOpen: () => {
               Swal.showLoading();
           },
-        });
+        }); 
 
         const response = await dispatch(updateDevice({token, formData})).unwrap();
 
@@ -367,6 +364,73 @@ const Device = () => {
 
     }
 
+    const closeCase = async (cid) => {
+      console.log(cid)
+      e.preventDefault();
+
+      const formData = new FormData();
+      formData.append("accident_id", cid);
+
+      Swal.fire({
+        icon: "success",
+        title: "Validing Id!",
+        text: "Device is being closed...",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      try {
+        Swal.fire({
+          title: "Closing Device...",
+          text: "Please wait while we process your request.",
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: () => {
+              Swal.showLoading();
+          },
+        });
+
+        const response = await dispatch(closeDevice({token, formData})).unwrap();
+
+        if (response.message === "case closed") {
+          Swal.fire({
+            icon: "success",
+            title: "Device Closed!",
+            text: `${response.message}`,
+          });
+
+          hideModal();
+        }
+        else {
+          Swal.fire({
+            icon: "info",
+            title: "Device status",
+            text: `${response.message}`,
+          });
+        }
+      } catch (error) {
+        let errorMessage = "Something went wrong";
+                
+        if (error && typeof error === "object") {
+            if (Array.isArray(error)) {
+                errorMessage = error.map(item => item.message).join(", ");
+            } else if (error.message) {
+                errorMessage = error.message;
+            } else if (error.response && error.response.data) {
+                errorMessage = Array.isArray(error.response.data) 
+                    ? error.response.data.map(item => item.message).join(", ") 
+                    : error.response.data.message || JSON.stringify(error.response.data);
+            }
+        }
+    
+        Swal.fire({
+          icon: "error",
+          title: "Error Occurred",
+          text: errorMessage,
+        });
+      }
+    }
+
     useEffect(() => {
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
@@ -382,7 +446,9 @@ const Device = () => {
         } else {
           console.error("Geolocation is not supported by this browser.");
         }
-      }, []);
+    }, []);
+
+      
 
     return (
         <>
@@ -466,7 +532,7 @@ const Device = () => {
                 <div className="modal-overlay">
                   <div className="modal-content2 spli" style={{width: '40%'}}>
                     <div className="head-mode">
-                      <h6 style={{color: '#2E3192'}}>Emergency Details</h6>
+                      <h6 style={{color: '#2E3192'}}>Device Details</h6>
                       <button className="modal-close" onClick={hideModal}>&times;</button>
                     </div>
                     {details ? (
@@ -482,27 +548,27 @@ const Device = () => {
                             <div className='w-100 px-lg-3 px-0 cta'>
                               <div className="d-flex justify-content-between">
                                 <p>Device ID: </p>
-                                <p>{details.device_id || 'N/A'}</p>
+                                <p>{details.devicedetails?.device_id || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Device IME: </p>
-                                <p>{details.device_ime || 'N/A'}</p>
+                                <p>{details.devicedetails?.device_ime || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Device Number: </p>
-                                <p>{details.device_number || 'N/A'}</p>
+                                <p>{details.devicedetails?.device_number || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Status: </p>
-                                <p className={details.status}>{details.status}</p>
+                                <p className={details.devicedetails?.status}>{details.status}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Longitute: </p>
-                                <p>{details.log || 'N/A'}</p>
+                                <p>{details.devicedetails?.log || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Latitude: </p>
-                                <p>{details.lat || 'N/A'}</p>
+                                <p>{details.devicedetails?.lat || 'N/A'}</p>
                               </div>
                             </div>
                             
@@ -510,19 +576,19 @@ const Device = () => {
                               
                               <div className="d-flex justify-content-between">
                                 <p>Owner Name: </p>
-                                <p>{details.owner_name}</p>
+                                <p>{details.devicedetails?.owner_name}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Owner Email: </p>
-                                <p>{details.owner_email}</p>
+                                <p>{details.devicedetails?.owner_email}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Owner Phone Number: </p>
-                                <p>{details.owner_phone_number}</p>
+                                <p>{details.devicedetails?.owner_phone_number}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Owner Address: </p>
-                                <p>{details.owner_address}</p>
+                                <p>{details.devicedetails?.owner_address}</p>
                               </div>
                             </div>
                           </div>
@@ -533,19 +599,19 @@ const Device = () => {
                             <div className='w-100 px-lg-3 px-0 cta'>
                               <div className="d-flex justify-content-between">
                                 <p>Vehicle Name: </p>
-                                <p>{details.vehicle_name || "N/A"}</p>
+                                <p>{details.devicedetails?.vehicle_name || "N/A"}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Vehicle Year: </p>
-                                <p>{details.vehicle_model_year || "N/A"}</p>
+                                <p>{details.devicedetails?.vehicle_model_year || "N/A"}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Vehicle Plate Number: </p>
-                                <p>{details.vehicle_plate_number || "N/A"}</p>
+                                <p>{details.devicedetails?.vehicle_plate_number || "N/A"}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Vehicle Chases Number </p>
-                                <p>{details.vehicle_chasses_number || "N/A"}</p>
+                                <p>{details.devicedetails?.vehicle_chasses_number || "N/A"}</p>
                               </div>
                             </div>
                           </div>
@@ -555,47 +621,85 @@ const Device = () => {
                             <div className='w-100 px-lg-3 px-0 cta'>
                               <div className="d-flex justify-content-between">
                                 <p>Latitude: </p>
-                                <p>{details.lat || "N/A"}</p>
+                                <p>{details.accident_detected?.lat || "N/A"}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Longitude: </p>
-                                <p>{details.log || 'N/A'}</p>
+                                <p>{details.accident_detected?.log || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Accident Type: </p>
-                                <p>{details.accident_type || 'N/A'}</p>
+                                <p>{details.accident_detected?.accident_type || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Nature Of Request </p>
-                                <p>{details.nature_of_request || 'N/A'}</p>
+                                <p>{details.accident_detected?.nature_of_request || 'N/A'}</p>
                               </div>
                             </div>
                           </div>
                           <hr />
                           <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
                             <p>Device Location</p>
-                                  <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
-                                      <GoogleMap
-                                        mapContainerStyle={containerStyle}
-                                        center={
-                                          currentLocation || 
-                                          (details && details.lat && details.log 
-                                            ? { lat: parseFloat(details.lat), lng: parseFloat(details.log) } 
-                                            : { lat: 6.5244, lng: 3.3792 }) // Default to Lagos, Nigeria
-                                        }
-                                        zoom={10}
-                                      >
-                                        {currentLocation && <Marker position={currentLocation} />}
-                                        {!currentLocation && details && details.lat && details.log && 
-                                          <Marker 
-                                            position={{ lat: parseFloat(details.lat), lng: parseFloat(details.log) }} 
-                                            icon={{
-                                              url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                                            }}
-                                          />
-                                        }
-                                      </GoogleMap>
-                                    </LoadScript>
+                              <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
+                                  <GoogleMap
+                                    mapContainerStyle={containerStyle}
+                                    center={
+                                      currentLocation || 
+                                      (details?.devicedetails && details.devicedetails?.lat && details.devicedetails?.log 
+                                        ? { lat: parseFloat(details.devicedetails?.lat), lng: parseFloat(details.devicedetails?.log) } 
+                                        : { lat: 6.5244, lng: 3.3792 }) // Default to Lagos, Nigeria
+                                    }
+                                    zoom={10}
+                                  >
+                                    {currentLocation && <Marker position={currentLocation} />}
+                                    {!currentLocation && details?.devicedetails && details.devicedetails?.lat && details.devicedetails?.log && 
+                                      <Marker 
+                                        position={{ lat: parseFloat(details.devicedetails?.lat), lng: parseFloat(details.devicedetails?.log) }} 
+                                        icon={{
+                                          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                                        }}
+                                      />
+                                    }
+                                  </GoogleMap>
+                              </LoadScript>
+                          </div>
+                          <hr />
+                          <p style={{color: '#2E3192'}}>Accident History</p>
+                          <div className="table-content">
+                            <div className="table-container">
+                              <table className="my-table">
+                                <thead>
+                                  <tr>
+                                    <th>Emergency ID</th>
+                                    <th>Date/Time</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>Status</th>
+                                    <th>close</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {
+                                    details?.accident_history && details.accident_history.length > 0 ? (
+                                      details.accident_history.map((item) => (
+                                        <tr key={item.id}>
+                                          <td>{item.deviceid}</td>
+                                          <td>{item.date}{item.time}</td>
+                                          <td>{item.accident_type}</td>
+                                          <td>{item.nature_of_request}</td>
+                                          <td>{item.priority}</td>
+                                          <td><button className="btn btn-sm btn-primary" onClick={() => closeCase(item.id)}>Close</button></td>
+                                        </tr>
+                                      ))
+                                    ) : (
+                                      <tr>
+                                        <td colSpan="7"><p className='text-center'>No History available</p></td>
+                                      </tr>
+                                    )
+                                  }
+                                </tbody>
+                              </table>
+                            </div>
                           </div>
                         </div>
                       </>
