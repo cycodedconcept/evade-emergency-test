@@ -238,22 +238,22 @@ const Card = () => {
             <div className="d-block d-lg-flex">
               <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
               <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
-                <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: 09065435623
+              <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.deviceid}
               </p>
             </div>
-            <p style={{fontWeight: "600", marginBottom: "0"}}>Fatal Collision</p>
+            <p style={{fontWeight: "600", marginBottom: "0"}}>{dataItem?.notifications?.[dataItem.notifications.length - 1]?.nature_of_request}</p>
             <div className="d-block d-lg-flex">
               <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
-              <small style={{color: "#707A8F", marginRight: "15px"}}>Location: 40.7128° N, 74.0060° W (New York, NY)</small>
+              <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.lat}, {dataItem?.notifications?.[dataItem.notifications.length - 1]?.log}</small>
               <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
-              <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: 2025-01-10 | 14:30</small>
+              <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.date} | {dataItem?.notifications?.[dataItem.notifications.length - 1]?.time}</small>
               <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
               <small style={{color: "#707A8F", marginRight: "5px"}}>Contact: 09181029838</small>
             </div>
           </div>
         </div>
         <div className='mt-3'>
-          <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}><img src={War} alt='' /> Severity: Fatal</p>
+          <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}><img src={War} alt='' /> Severity: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.priority}</p>
         </div>
       </div>
 

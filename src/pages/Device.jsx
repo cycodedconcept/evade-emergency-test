@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react'
+import React, {useState, useEffect, useMemo} from 'react'
 import CardCarousel from './reusables/CardCarousel';
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import { useDispatch, useSelector } from 'react-redux';
@@ -62,6 +62,12 @@ const Device = () => {
         setCurrentPage(pageNumber);
     };
 
+    useEffect(() => {
+      if (detailsItem && Object.keys(detailsItem).length > 0) {
+        setDetails(detailsItem);
+      }
+    }, [detailsItem]);
+
 
     const columns = [
         { header: "INDEX", accessor: "index" },
@@ -82,7 +88,8 @@ const Device = () => {
     const hideModal = () => {
         setMode(false);
         setMode2(false);
-        setAdd(false)
+        setAdd(false);
+        setDetails({})
     }
 
     // Transform data for the table
@@ -108,11 +115,11 @@ const Device = () => {
     }
 
     const handleRowClick = (row) => {
-      const devId = row.id;
+      const devId = row.device_id;
       setMode(true)
       console.log(devId)
       dispatch(getDetails({token, device_id: devId}))
-      setDetails(detailsItem);
+      // setDetails(detailsItem);
       console.log(detailsItem)
 
     };
@@ -448,7 +455,37 @@ const Device = () => {
         }
     }, []);
 
+    const mapCenter = useMemo(() => {
+      if (currentLocation) {
+        return currentLocation;
+      }
       
+      if (details?.devicedetails?.lat && details?.devicedetails?.log) {
+        const lat = parseFloat(details.devicedetails.lat);
+        const lng = parseFloat(details.devicedetails.log);
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng };
+        }
+      }
+      
+      return { lat: 6.5244, lng: 3.3792 }; // Default
+    }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
+    
+    const markerPosition = useMemo(() => {
+      if (currentLocation) return currentLocation;
+      
+      if (details?.devicedetails?.lat && details?.devicedetails?.log) {
+        const lat = parseFloat(details.devicedetails.lat);
+        const lng = parseFloat(details.devicedetails.log);
+        
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return { lat, lng };
+        }
+      }
+      
+      return null;
+    }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
 
     return (
         <>
@@ -641,26 +678,20 @@ const Device = () => {
                           <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
                             <p>Device Location</p>
                               <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
-                                  <GoogleMap
-                                    mapContainerStyle={containerStyle}
-                                    center={
-                                      currentLocation || 
-                                      (details?.devicedetails && details.devicedetails?.lat && details.devicedetails?.log 
-                                        ? { lat: parseFloat(details.devicedetails?.lat), lng: parseFloat(details.devicedetails?.log) } 
-                                        : { lat: 6.5244, lng: 3.3792 }) // Default to Lagos, Nigeria
-                                    }
-                                    zoom={10}
-                                  >
-                                    {currentLocation && <Marker position={currentLocation} />}
-                                    {!currentLocation && details?.devicedetails && details.devicedetails?.lat && details.devicedetails?.log && 
-                                      <Marker 
-                                        position={{ lat: parseFloat(details.devicedetails?.lat), lng: parseFloat(details.devicedetails?.log) }} 
-                                        icon={{
-                                          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                                        }}
-                                      />
-                                    }
-                                  </GoogleMap>
+                              <GoogleMap
+                                  mapContainerStyle={containerStyle}
+                                  center={mapCenter}
+                                  zoom={10}
+                                >
+                                  {markerPosition && (
+                                    <Marker 
+                                      position={markerPosition}
+                                      icon={!currentLocation ? {
+                                        url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                                      } : undefined}
+                                    />
+                                  )}
+                                </GoogleMap>
                               </LoadScript>
                           </div>
                           <hr />
