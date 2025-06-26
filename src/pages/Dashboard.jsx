@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
@@ -51,6 +51,26 @@ const Dashboard = () => {
       })
       .catch((error) => console.error("Error fetching countries:", error));
   }, []);
+
+
+
+  const notificationRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setShowNotifications(false);
+      }
+    };
+
+    if (showNotifications) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showNotifications]);
 
   const handleSelectCountry = (country) => {
     setSelectedCountry(country);
@@ -166,7 +186,7 @@ const Dashboard = () => {
                     </span>
                </div>
 
-               <div style={{ position: "relative", marginLeft: "15px" }}>
+               <div ref={notificationRef} style={{ position: "relative", marginLeft: "15px" }}>
                     <FontAwesomeIcon
                         icon={faBell}
                         style={iconStyle}
