@@ -32,11 +32,18 @@ const Dashboard = () => {
 
 
   useEffect(() => {
-    if (token) {
-      dispatch(dashboardData({token}))
-    }
+    if (!token) return;
+  
+    // Initial call
+    dispatch(dashboardData({token}));
+  
+    // Set up interval for subsequent calls
+    const intervals = setInterval(() => {
+      dispatch(dashboardData({token}));
+    }, 20000);
+  
+    return () => clearInterval(intervals);
   }, [dispatch, token])
-
 
 
   useEffect(() => {
