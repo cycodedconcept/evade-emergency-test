@@ -248,7 +248,7 @@ const Card = () => {
               <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
               <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.date} | {dataItem?.notifications?.[dataItem.notifications.length - 1]?.time}</small>
               <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}>Contact: 09181029838</small>
+              <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {' ' + dataItem?.notifications?.[dataItem.notifications.length - 1]?.accident_type}</small>
             </div>
           </div>
         </div>
