@@ -373,7 +373,6 @@ const Device = () => {
 
     const closeCase = async (cid) => {
       console.log(cid)
-      e.preventDefault();
 
       const formData = new FormData();
       formData.append("accident_id", cid);
