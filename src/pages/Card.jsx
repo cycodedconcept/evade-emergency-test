@@ -23,27 +23,41 @@ const Card = () => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [mode, setMode] = useState(false);
   const [details, setDetails] = useState({});
+  const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(null);
 
-  useEffect(() => {
-    if (token) {
-      dispatch(dashboardData({token}))
-        .unwrap()
-        .then(data => {
-          console.log('Dashboard data loaded successfully');
-        })
-        .catch(error => {
-          console.error('Failed to load dashboard data:', error);
-          
-          // Handle authentication errors
-          if (typeof error === 'string' && error.includes('Authentication failed')) {
-            // You could redirect to login or show error message
-            alert('Your session has expired. Please log in again.');
-          }
-        });
-    } else {
-      console.error('No token found in localStorage');
+useEffect(() => {
+  if (!token) return;
+
+  const fetchData = async (isInitial = false) => {
+    try {
+      if (!isInitial) {
+        setIsBackgroundRefresh(true);
+      }
+
+      await dispatch(dashboardData({token})).unwrap();
+      
+      if (!isInitial) {
+        setLastRefresh(new Date());
+        // Brief delay to show success, then hide
+        setTimeout(() => setIsBackgroundRefresh(false), 1000);
+      }
+    } catch (error) {
+      console.error('Refresh failed:', error);
+      setIsBackgroundRefresh(false);
+      
+      // Only alert for auth errors, silently handle others
+      if (typeof error === 'string' && error.includes('Authentication failed')) {
+        alert('Your session has expired. Please log in again.');
+      }
     }
-  }, [dispatch, token]);
+  };
+
+  fetchData(true);
+  const interval = setInterval(() => fetchData(false), 20000);
+
+  return () => clearInterval(interval);
+}, [dispatch, token]);
   
   const columns = [
     { header: "INDEX", accessor: "index" },
@@ -168,19 +182,19 @@ const Card = () => {
 }, [details]);
 
   // If data is loading or there's an error, show appropriate UI
-  if (loading) {
-    return <div className="loading-container">Loading dashboard data...</div>;
-  }
+  // if (loading) {
+  //   return <div className="loading-container">Loading dashboard data...</div>;
+  // }
 
-  if (error) {
-    return (
-      <div className="error-container">
-        <h3>Error loading dashboard</h3>
-        <p>{typeof error === 'string' ? error : 'An unexpected error occurred'}</p>
-        <button onClick={() => dispatch(dashboardData({ token }))}>Retry</button>
-      </div>
-    );
-  }
+  // if (error) {
+  //   return (
+  //     <div className="error-container">
+  //       <h3>Error loading dashboard</h3>
+  //       <p>{typeof error === 'string' ? error : 'An unexpected error occurred'}</p>
+  //       <button onClick={() => dispatch(dashboardData({ token }))}>Retry</button>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>
