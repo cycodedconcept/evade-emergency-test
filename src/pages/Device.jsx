@@ -570,7 +570,7 @@ const Device = () => {
                     <div className="head-mode">
                       <h6 style={{color: '#2E3192'}}>Device Details</h6>
                       <button className="modal-close" onClick={hideModal}>&times;</button>
-                    </div>
+                     </div>
                     {details ? (
                       <>
                         <div className="modal-body">

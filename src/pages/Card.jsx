@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react'
+import React, {useState, useEffect, useMemo} from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -7,7 +7,11 @@ import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import CardCarousel from './reusables/CardCarousel';
 import Table from "./reusables/Table"
 import { dashboardData } from '../features/userSlice';
-import { Em, War, Logo } from '../assets';
+import { getDetails, closeDevice } from '../features/deviceSlice';
+import Swal from 'sweetalert2';
+
+
+import { Em, War, Logo2 } from '../assets';
 
 const containerStyle = {
   width: "100%",
@@ -18,7 +22,8 @@ const Card = () => {
   const dispatch = useDispatch();
   const tokenItem = localStorage.getItem("item");
   const token = tokenItem ? JSON.parse(tokenItem) : null;
-  const {loading, error, dataItem } = useSelector((state) => state.user);
+  const { loading, error, dataItem } = useSelector((state) => state.user);
+  const { detailsItem } = useSelector((state) => state.device);
   const [selectedDate, setSelectedDate] = useState("");
   const [currentLocation, setCurrentLocation] = useState(null);
   const [mode, setMode] = useState(false);
@@ -101,22 +106,32 @@ useEffect(() => {
   };
 
   const handleView = (row) => {
-    const recordId = row.id;
+    const recordId = row.deviceid;
+    console.log(recordId)
+    dispatch(getDetails({token, device_id: recordId}))
+    setMode(true); 
     
-    if (dataItem && dataItem.records && Array.isArray(dataItem.records)) {
-      const originalRecord = dataItem.records.find(record => record.id === recordId);
+    // if (dataItem && dataItem.records && Array.isArray(dataItem.records)) {
+    //   const originalRecord = dataItem.records.find(record => record.id === recordId);
       
-      if (originalRecord) {
-        setDetails(originalRecord);
-        setMode(true);
-        console.log("Original record:", originalRecord);
-      } else {
-        console.error("Record not found with ID:", recordId);
-      }
-    } else {
-      console.error("No records data available");
-    }
+    //   if (originalRecord) {
+    //     setDetails(originalRecord);
+        // setMode(true);
+    //     console.log("Original record:", originalRecord);
+    //   } else {
+    //     console.error("Record not found with ID:", recordId);
+    //   }
+    // } else {
+    //   console.error("No records data available");
+    // }
   };
+
+
+  useEffect(() => {
+    if (detailsItem && Object.keys(detailsItem).length > 0) {
+      setDetails(detailsItem);
+    }
+  }, [detailsItem]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -181,20 +196,37 @@ useEffect(() => {
     }
 }, [details]);
 
-  // If data is loading or there's an error, show appropriate UI
-  // if (loading) {
-  //   return <div className="loading-container">Loading dashboard data...</div>;
-  // }
-
-  // if (error) {
-  //   return (
-  //     <div className="error-container">
-  //       <h3>Error loading dashboard</h3>
-  //       <p>{typeof error === 'string' ? error : 'An unexpected error occurred'}</p>
-  //       <button onClick={() => dispatch(dashboardData({ token }))}>Retry</button>
-  //     </div>
-  //   );
-  // }
+  const mapCenter = useMemo(() => {
+        if (currentLocation) {
+          return currentLocation;
+        }
+        
+        if (details?.devicedetails?.lat && details?.devicedetails?.log) {
+          const lat = parseFloat(details.devicedetails.lat);
+          const lng = parseFloat(details.devicedetails.log);
+          
+          if (!isNaN(lat) && !isNaN(lng)) {
+            return { lat, lng };
+          }
+        }
+        
+        return { lat: 6.5244, lng: 3.3792 }; // Default
+      }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
+      
+      const markerPosition = useMemo(() => {
+        if (currentLocation) return currentLocation;
+        
+        if (details?.devicedetails?.lat && details?.devicedetails?.log) {
+          const lat = parseFloat(details.devicedetails.lat);
+          const lng = parseFloat(details.devicedetails.log);
+          
+          if (!isNaN(lat) && !isNaN(lng)) {
+            return { lat, lng };
+          }
+        }
+        
+        return null;
+      }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
 
   return (
     <>
@@ -322,65 +354,163 @@ useEffect(() => {
             </div>
             <div className="modal-body">
               <div className="d-flex justify-content-between">
-                <img src={Logo} alt="" />
-                <p>{details.deviceid || 'N/A'}</p>
+                <img src={Logo2} alt="" />
               </div>
               <hr />
 
-              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
-                <div className='w-100 px-lg-3 px-0 cta' style={{borderRight: '2px solid #e7e8fd'}}>
+              <p style={{color: '#2E3192'}}>Device Information</p>
+              <div className="">
+                <div className='w-100 px-lg-3 px-0 cta'>
                   <div className="d-flex justify-content-between">
-                    <p>Accident Type: </p>
-                    <p>{details.accident_type || 'N/A'}</p>
+                    <p>Device ID: </p>
+                    <p>{details.devicedetails?.device_id || 'N/A'}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Nature of Request: </p>
-                    <p>{details.nature_of_request || 'N/A'}</p>
+                    <p>Device IME: </p>
+                    <p>{details.devicedetails?.device_ime || 'N/A'}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Name: </p>
-                    <p>{details.name || 'none'}</p>
+                    <p>Device Number: </p>
+                    <p>{details.devicedetails?.device_number || 'N/A'}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Priority: </p>
-                    <p className={details.priority}>{details.priority || 'none'}</p>
+                    <p>Status: </p>
+                    <p className={details.devicedetails?.status}>{details.status}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Assigned At: </p>
-                    <p>{details.assigned_at || 'none'}</p>
+                    <p>Longitute: </p>
+                    <p>{details.devicedetails?.log || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Latitude: </p>
+                    <p>{details.devicedetails?.lat || 'N/A'}</p>
                   </div>
                 </div>
                 
                 <div className='w-100'>
+                  
                   <div className="d-flex justify-content-between">
-                    <p>Longitute: </p>
-                    <p>{details.log || 'N/A'}</p>
+                    <p>Owner Name: </p>
+                    <p>{details.devicedetails?.owner_name}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Latitude: </p>
-                    <p>{details.lat || 'N/A'}</p>
+                    <p>Owner Email: </p>
+                    <p>{details.devicedetails?.owner_email}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Date: </p>
-                    <p>{details.date || 'N/A'}</p>
+                    <p>Owner Phone Number: </p>
+                    <p>{details.devicedetails?.owner_phone_number}</p>
                   </div>
                   <div className="d-flex justify-content-between">
-                    <p>Time: </p>
-                    <p>{details.time || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Created At: </p>
-                    <p>{details.created_at || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Status: </p>
-                    <p className={details.closed_status === 0 ? 'Inactive' : 'Active'}>
-                      {details.closed_status === 0 ? 'Inactive' : 'Active'}
-                    </p>
+                    <p>Owner Address: </p>
+                    <p>{details.devicedetails?.owner_address}</p>
                   </div>
                 </div>
               </div>
-            </div>
+
+              <hr />
+              <p style={{color: '#2E3192'}}>Vehicle Information</p>
+              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
+                <div className='w-100 px-lg-3 px-0 cta'>
+                  <div className="d-flex justify-content-between">
+                    <p>Vehicle Name: </p>
+                    <p>{details.devicedetails?.vehicle_name || "N/A"}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Vehicle Year: </p>
+                    <p>{details.devicedetails?.vehicle_model_year || "N/A"}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Vehicle Plate Number: </p>
+                    <p>{details.devicedetails?.vehicle_plate_number || "N/A"}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Vehicle Chases Number </p>
+                    <p>{details.devicedetails?.vehicle_chasses_number || "N/A"}</p>
+                  </div>
+                </div>
+              </div>
+              <hr />
+              <p style={{color: '#2E3192'}}>Accident Detected</p>
+              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
+                <div className='w-100 px-lg-3 px-0 cta'>
+                  <div className="d-flex justify-content-between">
+                    <p>Latitude: </p>
+                    <p>{details.accident_detected?.lat || "N/A"}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Longitude: </p>
+                    <p>{details.accident_detected?.log || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Accident Type: </p>
+                    <p>{details.accident_detected?.accident_type || 'N/A'}</p>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p>Nature Of Request </p>
+                    <p>{details.accident_detected?.nature_of_request || 'N/A'}</p>
+                  </div>
+                </div>
+              </div>
+              <hr />
+              <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
+                <p>Device Location</p>
+                  <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
+                  <GoogleMap
+                      mapContainerStyle={containerStyle}
+                      center={mapCenter}
+                      zoom={10}
+                    >
+                      {markerPosition && (
+                        <Marker 
+                          position={markerPosition}
+                          icon={!currentLocation ? {
+                            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                          } : undefined}
+                        />
+                      )}
+                    </GoogleMap>
+                  </LoadScript>
+              </div>
+              <hr />
+              <p style={{color: '#2E3192'}}>Accident History</p>
+              <div className="table-content">
+                <div className="table-container">
+                  <table className="my-table">
+                    <thead>
+                      <tr>
+                        <th>Emergency ID</th>
+                        <th>Date/Time</th>
+                        <th>Type</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                        <th>close</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {
+                        details?.accident_history && details.accident_history.length > 0 ? (
+                          details.accident_history.map((item) => (
+                            <tr key={item.id}>
+                              <td>{item.deviceid}</td>
+                              <td>{item.date}{item.time}</td>
+                              <td>{item.accident_type}</td>
+                              <td>{item.nature_of_request}</td>
+                              <td>{item.priority}</td>
+                              <td><button className="btn btn-sm btn-primary" onClick={() => closeCase(item.id)}>Close</button></td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="7"><p className='text-center'>No History available</p></td>
+                          </tr>
+                        )
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+          </div>
           </div>
         </div>
       )}

@@ -1,10 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Al, Al2, Ch, Ch2, De, De2, Help, Help2, La, La2, Logo2, Avatar, Bel, Bel2 } from '../assets';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { BsThreeDotsVertical, BsPencil, BsLock, BsBoxArrowRight } from "react-icons/bs";
+import { dashboardData } from '../features/userSlice';
+
 
 const Sidebar = ({ activeMenu, setActiveMenu }) => {
+    const dispatch = useDispatch();
+    const tokenItem = localStorage.getItem("item");
+    const token = tokenItem ? JSON.parse(tokenItem) : null;
+    const {dataItem } = useSelector((state) => state.user);
     const [isOpen, setIsOpen] = useState(true);
     const [showPopup, setShowPopup] = useState(false);
     
@@ -21,6 +28,12 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
     const toggleSidebar = () => {
         setIsOpen(!isOpen);
     };
+
+    useEffect(() => {
+        if (token) {
+            dispatch(dashboardData({token}))
+        }
+    }, [dispatch, token])
 
     const MenuItem = ({ item }) => (
         <div
@@ -115,7 +128,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
                                 <img src={Avatar} alt="" />
                                 </div>
                                 <div className="text-profile">
-                                    <p style={{fontSize: "11px", margin: '0'}}>John Doe<br/> <span style={{fontSize: '9px', color: "707A8F"}}>premium</span></p>
+                                    <p style={{fontSize: "11px", margin: '0'}}>{dataItem?.details?.name || 'User'}<br/> <span style={{fontSize: '9px', color: "707A8F"}}>premium</span></p>
                                 </div>
                             </div>
                             <div style={{ position: "relative" }}>
