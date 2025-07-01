@@ -77,9 +77,9 @@ const Device = () => {
         { header: "IME", accessor: "device_ime" },
         { header: "OWNER PHONE NUMBER", accessor: "owner_phone_number" },
         { header: "OWNER EMAIL", accessor: "owner_email" },
-        { header: "VEHICLE NAME", accessor: "vehicle_name" },
-        { header: "VEHICLE PLATE NUMBER", accessor: "vehicle_plate_number" },
-        { header: "OWNER ADDRESS", accessor: "owner_address" },
+        // { header: "VEHICLE NAME", accessor: "vehicle_name" },
+        // { header: "VEHICLE PLATE NUMBER", accessor: "vehicle_plate_number" },
+        // { header: "OWNER ADDRESS", accessor: "owner_address" },
         { header: "STATUS", accessor: "status"},
         { header: "ACTION", accessor: "action" }
     ];
@@ -486,40 +486,14 @@ const Device = () => {
       return null;
     }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
 
+    
+
     return (
         <>
             <div className="text-right my-4">
                 <button className='d-btn' onClick={() => setAdd(true)}><span style={{fontSize: '22px', marginRight: '10px'}}>+</span>Add New Device </button>
             </div>
-            {/* <div className="dash-cards">
-                <CardComponent 
-                    title="Online Devices"
-                    imageBase={Pad}
-                    image={Com}
-                    value={devices?.counts?.onlinedevice || 0} 
-                />
-
-                <CardComponent 
-                    title="Offline Devices"
-                    imageBase={Act2}
-                    image={Act}
-                    value={devices?.counts?.offlinedevice || 0} 
-                />
-
-                <CardComponent 
-                    title="SOS"
-                    imageBase={Org2}
-                    image={Org}
-                    value={devices?.counts?.sos || 0} 
-                />
-
-                <CardComponent
-                    title="Accident Detected"
-                    imageBase={Pink2}
-                    image={Pink}
-                    value={devices?.counts?.accident_detected || 0} 
-                />
-            </div> */}
+            
 
             <CardCarousel devices={devices} />
 
@@ -596,7 +570,7 @@ const Device = () => {
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Status: </p>
-                                <p className={details.devicedetails?.status}>{details.status}</p>
+                                <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
                               </div>
                               <div className="d-flex justify-content-between">
                                 <p>Longitute: </p>

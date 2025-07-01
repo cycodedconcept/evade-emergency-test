@@ -145,7 +145,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
             <div 
               className="popup-box"
               style={{
-                position: "absolute",
+                position: "fixed",
                 bottom: "83px",
                 left: "184px",
                 background: "#fff",

@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useMemo} from 'react'
+import React, {useState, useEffect, useMemo, useRef} from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -30,6 +30,10 @@ const Card = () => {
   const [details, setDetails] = useState({});
   const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [shouldVibrate, setShouldVibrate] = useState(false);
+  const [lastNotificationId, setLastNotificationId] = useState(null);
+  const [audioContext, setAudioContext] = useState(null);
+  const alertRef = useRef(null);
 
 useEffect(() => {
   if (!token) return;
@@ -63,6 +67,113 @@ useEffect(() => {
 
   return () => clearInterval(interval);
 }, [dispatch, token]);
+
+
+useEffect(() => {
+  const currentNotification = dataItem?.notifications?.[dataItem.notifications.length - 1];
+  const currentId = currentNotification?.id || currentNotification?.deviceid + currentNotification?.date + currentNotification?.time;
+  
+  if (currentId && currentId !== lastNotificationId && lastNotificationId !== null) {
+    // New notification detected, trigger vibration
+    setShouldVibrate(true);
+    
+    // Play notification sound
+    playNotificationSound();
+    
+    // Alternative: Play audio file instead
+    // playAudioFile('/path/to/your/notification-sound.mp3');
+    
+    // Remove vibration class after animation completes
+    setTimeout(() => {
+      setShouldVibrate(false);
+    }, 1000);
+  }
+  
+  setLastNotificationId(currentId);
+}, [dataItem?.notifications, lastNotificationId, audioContext]);
+
+
+// audio file section
+useEffect(() => {
+  // Create audio context on first user interaction to comply with browser policies
+  const initAudioContext = () => {
+    if (!audioContext) {
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      setAudioContext(context);
+    }
+  };
+
+  // Add event listener for first user interaction
+  document.addEventListener('click', initAudioContext, { once: true });
+  document.addEventListener('touchstart', initAudioContext, { once: true });
+
+  return () => {
+    document.removeEventListener('click', initAudioContext);
+    document.removeEventListener('touchstart', initAudioContext);
+  };
+}, [audioContext]);
+
+
+const playNotificationSound = async () => {
+  if (!audioContext) return;
+  
+  try {
+    // Resume audio context if it's suspended
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
+    // Create a synthetic alert sound using Web Audio API
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    // Connect the nodes
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // Configure the sound (urgent alert tone)
+    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // High frequency for urgency
+    oscillator.type = 'sine';
+    
+    // Create envelope for the sound
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+    
+    // Play the sound
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+    
+    // Create a second beep for double alert
+    setTimeout(() => {
+      const oscillator2 = audioContext.createOscillator();
+      const gainNode2 = audioContext.createGain();
+      
+      oscillator2.connect(gainNode2);
+      gainNode2.connect(audioContext.destination);
+      
+      oscillator2.frequency.setValueAtTime(1000, audioContext.currentTime);
+      oscillator2.type = 'sine';
+      
+      gainNode2.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode2.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+      gainNode2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+      
+      oscillator2.start(audioContext.currentTime);
+      oscillator2.stop(audioContext.currentTime + 0.5);
+    }, 600);
+    
+  } catch (error) {
+    console.error('Error playing notification sound:', error);
+  }
+};
+
+
+
+
+
+
+  
   
   const columns = [
     { header: "INDEX", accessor: "index" },
@@ -228,6 +339,72 @@ useEffect(() => {
         return null;
       }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
 
+      const closeCase = async (cid) => {
+        console.log(cid)
+  
+        const formData = new FormData();
+        formData.append("accident_id", cid);
+  
+        Swal.fire({
+          icon: "success",
+          title: "Validing Id!",
+          text: "Device is being closed...",
+          timer: 1500,
+          showConfirmButton: false,
+        });
+  
+        try {
+          Swal.fire({
+            title: "Closing Device...",
+            text: "Please wait while we process your request.",
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            },
+          });
+  
+          const response = await dispatch(closeDevice({token, formData})).unwrap();
+  
+          if (response.message === "case closed") {
+            Swal.fire({
+              icon: "success",
+              title: "Device Closed!",
+              text: `${response.message}`,
+            });
+  
+            hideModal();
+          }
+          else {
+            Swal.fire({
+              icon: "info",
+              title: "Device status",
+              text: `${response.message}`,
+            });
+          }
+        } catch (error) {
+          let errorMessage = "Something went wrong";
+                  
+          if (error && typeof error === "object") {
+              if (Array.isArray(error)) {
+                  errorMessage = error.map(item => item.message).join(", ");
+              } else if (error.message) {
+                  errorMessage = error.message;
+              } else if (error.response && error.response.data) {
+                  errorMessage = Array.isArray(error.response.data) 
+                      ? error.response.data.map(item => item.message).join(", ") 
+                      : error.response.data.message || JSON.stringify(error.response.data);
+              }
+          }
+      
+          Swal.fire({
+            icon: "error",
+            title: "Error Occurred",
+            text: errorMessage,
+          });
+        }
+      }
+
   return (
     <>
       <div className="d-block d-lg-flex justify-content-between p-3 mt-3 text-center">
@@ -275,7 +452,38 @@ useEffect(() => {
         </div>
       </div>
       
-      <div className="alert-box d-block d-lg-flex justify-content-between p-3" style={{border: "1px solid #FE5B65", borderRadius: "12px"}}>
+      {/* <div className="alert-box d-block d-lg-flex justify-content-between p-3" style={{border: "1px solid #FE5B65", borderRadius: "12px"}}>
+        <div className='d-flex'>
+          <div>
+            <img src={Em} alt="" className='mx-3 my-3'/>
+          </div>
+          <div>
+            <div className="d-block d-lg-flex">
+              <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
+              <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
+              <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.deviceid}
+              </p>
+            </div>
+            <p style={{fontWeight: "600", marginBottom: "0"}}>{dataItem?.notifications?.[dataItem.notifications.length - 1]?.nature_of_request}</p>
+            <div className="d-block d-lg-flex">
+              <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
+              <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.lat}, {dataItem?.notifications?.[dataItem.notifications.length - 1]?.log}</small>
+              <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
+              <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.date} | {dataItem?.notifications?.[dataItem.notifications.length - 1]?.time}</small>
+              <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
+              <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {' ' + dataItem?.notifications?.[dataItem.notifications.length - 1]?.accident_type}</small>
+            </div>
+          </div>
+        </div>
+        <div className='mt-3'>
+          <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}><img src={War} alt='' /> Severity: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.priority}</p>
+        </div>
+      </div> */}
+      <div 
+        ref={alertRef}
+        className={`alert-box d-block d-lg-flex justify-content-between p-3 ${shouldVibrate ? 'vibrate-animation' : ''}`}
+        style={{border: "1px solid #FE5B65", borderRadius: "12px"}}
+      >
         <div className='d-flex'>
           <div>
             <img src={Em} alt="" className='mx-3 my-3'/>
@@ -375,7 +583,7 @@ useEffect(() => {
                   </div>
                   <div className="d-flex justify-content-between">
                     <p>Status: </p>
-                    <p className={details.devicedetails?.status}>{details.status}</p>
+                    <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
                   </div>
                   <div className="d-flex justify-content-between">
                     <p>Longitute: </p>
