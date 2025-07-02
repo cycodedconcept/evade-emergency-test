@@ -76,7 +76,8 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
     return (
         <div className="table-content">
             <div className="table-container">
-                <table className="my-table w-100">
+              <div className="jumbotron" style={{backgroundColor: '#fff'}}>
+              <table className="my-table w-100 no-lines-table">
                     <thead>
                         <tr>
                             {columns.map((col, index) => (
@@ -145,6 +146,8 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
                         ))}
                     </tbody>
                 </table>
+              </div>
+                
             </div>
         </div>
     );

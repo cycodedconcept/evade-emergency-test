@@ -33,6 +33,13 @@ const Card = () => {
   const [shouldVibrate, setShouldVibrate] = useState(false);
   const [lastNotificationId, setLastNotificationId] = useState(null);
   const [audioContext, setAudioContext] = useState(null);
+  const [showMainAlert, setShowMainAlert] = useState(true);
+  const [visibleNotifications, setVisibleNotifications] = useState([]);
+  
+  // New states for popup notifications
+  const [activePopups, setActivePopups] = useState([]);
+  const [processedNotifications, setProcessedNotifications] = useState(new Set());
+  
   const alertRef = useRef(null);
 
 useEffect(() => {
@@ -68,20 +75,135 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [dispatch, token]);
 
+// Enhanced notification detection with popup system
+// useEffect(() => {
+//   if (!dataItem?.notifications || dataItem.notifications.length === 0) return;
 
+//   // Check for new notifications that weren't processed yet
+//   const newNotifications = dataItem.notifications.filter(notification => {
+//     const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
+//     return !processedNotifications.has(notificationId);
+//   });
+
+//   if (newNotifications.length > 0) {
+//     // Process each new notification
+//     newNotifications.forEach(notification => {
+//       const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
+      
+//       // Add to processed set
+//       setProcessedNotifications(prev => new Set([...prev, notificationId]));
+      
+//       // Create popup
+//       triggerNotificationPopup(notification);
+//     });
+
+//     // Play sound for new notifications (only once even if multiple)
+//     playNotificationSound();
+//   }
+// }, [dataItem?.notifications]);
+
+useEffect(() => {
+  if (!dataItem?.notifications || dataItem.notifications.length === 0) return;
+
+  // Check for new notifications that weren't processed yet
+  const newNotifications = dataItem.notifications.filter(notification => {
+    const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
+    return !processedNotifications.has(notificationId);
+  });
+
+  if (newNotifications.length > 0) {
+    // Process each new notification
+    newNotifications.forEach(notification => {
+      const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
+      
+      // Add to processed set
+      setProcessedNotifications(prev => new Set([...prev, notificationId]));
+      
+      // Add to visible notifications with auto-remove timer
+      const notificationWithTimer = {
+        ...notification,
+        notificationId,
+        timestamp: Date.now(),
+        shouldVibrate: true
+      };
+
+      setVisibleNotifications(prev => [...prev, notificationWithTimer]);
+
+      // Auto-remove from visible notifications after 15 seconds
+      setTimeout(() => {
+        setVisibleNotifications(prev => 
+          prev.filter(item => item.notificationId !== notificationId)
+        );
+      }, 15000);
+
+      // Stop vibration after 2 seconds
+      setTimeout(() => {
+        setVisibleNotifications(prev => 
+          prev.map(item => 
+            item.notificationId === notificationId 
+              ? { ...item, shouldVibrate: false }
+              : item
+          )
+        );
+      }, 2000);
+
+      // Create popup (keep your existing popup logic)
+      triggerNotificationPopup(notification);
+    });
+
+    // Play sound for new notifications (only once even if multiple)
+    playNotificationSound();
+  }
+}, [dataItem?.notifications]);
+
+const closeMainNotification = (notificationId) => {
+  setVisibleNotifications(prev => 
+    prev.filter(item => item.notificationId !== notificationId)
+  );
+};
+
+// Function to create notification popup
+const triggerNotificationPopup = (notification) => {
+  const popupId = `popup-${Date.now()}-${Math.random()}`;
+  const newPopup = {
+    ...notification,
+    popupId,
+    timestamp: Date.now(),
+    shouldVibrate: true
+  };
+
+  setActivePopups(prev => [...prev, newPopup]);
+
+  // Auto-remove after 20 seconds
+  setTimeout(() => {
+    setActivePopups(prev => prev.filter(popup => popup.popupId !== popupId));
+  }, 20000);
+
+  // Stop vibration after 2 seconds
+  setTimeout(() => {
+    setActivePopups(prev => 
+      prev.map(popup => 
+        popup.popupId === popupId 
+          ? { ...popup, shouldVibrate: false }
+          : popup
+      )
+    );
+  }, 2000);
+};
+
+// Function to manually close a popup
+const closeNotificationPopup = (popupId) => {
+  setActivePopups(prev => prev.filter(popup => popup.popupId !== popupId));
+};
+
+// Original notification effect for the main alert box
 useEffect(() => {
   const currentNotification = dataItem?.notifications?.[dataItem.notifications.length - 1];
   const currentId = currentNotification?.id || currentNotification?.deviceid + currentNotification?.date + currentNotification?.time;
   
   if (currentId && currentId !== lastNotificationId && lastNotificationId !== null) {
-    // New notification detected, trigger vibration
+    // New notification detected, trigger vibration for main alert
     setShouldVibrate(true);
-    
-    // Play notification sound
-    playNotificationSound();
-    
-    // Alternative: Play audio file instead
-    // playAudioFile('/path/to/your/notification-sound.mp3');
     
     // Remove vibration class after animation completes
     setTimeout(() => {
@@ -90,8 +212,7 @@ useEffect(() => {
   }
   
   setLastNotificationId(currentId);
-}, [dataItem?.notifications, lastNotificationId, audioContext]);
-
+}, [dataItem?.notifications, lastNotificationId]);
 
 // audio file section
 useEffect(() => {
@@ -167,13 +288,6 @@ const playNotificationSound = async () => {
     console.error('Error playing notification sound:', error);
   }
 };
-
-
-
-
-
-
-  
   
   const columns = [
     { header: "INDEX", accessor: "index" },
@@ -221,22 +335,7 @@ const playNotificationSound = async () => {
     console.log(recordId)
     dispatch(getDetails({token, device_id: recordId}))
     setMode(true); 
-    
-    // if (dataItem && dataItem.records && Array.isArray(dataItem.records)) {
-    //   const originalRecord = dataItem.records.find(record => record.id === recordId);
-      
-    //   if (originalRecord) {
-    //     setDetails(originalRecord);
-        // setMode(true);
-    //     console.log("Original record:", originalRecord);
-    //   } else {
-    //     console.error("Record not found with ID:", recordId);
-    //   }
-    // } else {
-    //   console.error("No records data available");
-    // }
   };
-
 
   useEffect(() => {
     if (detailsItem && Object.keys(detailsItem).length > 0) {
@@ -405,6 +504,23 @@ const playNotificationSound = async () => {
         }
       }
 
+      useEffect(() => {
+        if (dataItem?.notifications && dataItem.notifications.length > 0 && showMainAlert) {
+          const timer = setTimeout(() => {
+            setShowMainAlert(false);
+          }, 15000); // 15 seconds
+      
+          return () => clearTimeout(timer);
+        }
+      }, [dataItem?.notifications, showMainAlert]);
+      
+      // Reset showMainAlert when new notifications arrive
+      useEffect(() => {
+        if (dataItem?.notifications && dataItem.notifications.length > 0) {
+          setShowMainAlert(true);
+        }
+      }, [dataItem?.notifications?.[dataItem?.notifications?.length - 1]?.id]);
+
   return (
     <>
       <div className="d-block d-lg-flex justify-content-between p-3 mt-3 text-center">
@@ -452,64 +568,68 @@ const playNotificationSound = async () => {
         </div>
       </div>
       
-      {/* <div className="alert-box d-block d-lg-flex justify-content-between p-3" style={{border: "1px solid #FE5B65", borderRadius: "12px"}}>
-        <div className='d-flex'>
-          <div>
-            <img src={Em} alt="" className='mx-3 my-3'/>
-          </div>
-          <div>
-            <div className="d-block d-lg-flex">
-              <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
-              <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
-              <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.deviceid}
-              </p>
+      
+
+      {visibleNotifications.length > 0 && (
+        <div className="notifications-container">
+          {visibleNotifications.map((notification, index) => (
+            <div 
+              key={notification.notificationId}
+              className={`alert-box d-block d-lg-flex justify-content-between p-3 mb-3 ${notification.shouldVibrate ? 'vibrate-animation' : ''}`}
+              style={{
+                border: "1px solid #FE5B65", 
+                borderRadius: "12px",
+                position: 'relative',
+                animation: `slideIn 0.3s ease-out ${index * 0.1}s both`
+              }}
+            >
+              <div className='d-flex'>
+                <div>
+                  <img src={Em} alt="" className='mx-3 my-3'/>
+                </div>
+                <div>
+                  <div className="d-block d-lg-flex">
+                    <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
+                    <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
+                      <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {notification.deviceid}
+                    </p>
+                  </div>
+                  <p style={{fontWeight: "600", marginBottom: "0"}}>{notification.nature_of_request}</p>
+                  <div className="d-block d-lg-flex">
+                    <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
+                    <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {notification.lat}, {notification.log}</small>
+                    <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
+                    <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {notification.date} | {notification.time}</small>
+                    <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
+                    <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {notification.accident_type}</small>
+                  </div>
+                </div>
+              </div>
+              <div className='mt-3'>
+                <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}>
+                  <img src={War} alt='' /> Severity: {notification.priority}
+                </p>
+              </div>
+              {/* Close button */}
+              <button 
+                onClick={() => closeMainNotification(notification.notificationId)}
+                style={{
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '20px',
+                  color: '#FE5B65',
+                  cursor: 'pointer'
+                }}
+              >
+                &times;
+              </button>
             </div>
-            <p style={{fontWeight: "600", marginBottom: "0"}}>{dataItem?.notifications?.[dataItem.notifications.length - 1]?.nature_of_request}</p>
-            <div className="d-block d-lg-flex">
-              <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
-              <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.lat}, {dataItem?.notifications?.[dataItem.notifications.length - 1]?.log}</small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
-              <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.date} | {dataItem?.notifications?.[dataItem.notifications.length - 1]?.time}</small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {' ' + dataItem?.notifications?.[dataItem.notifications.length - 1]?.accident_type}</small>
-            </div>
-          </div>
+          ))}
         </div>
-        <div className='mt-3'>
-          <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}><img src={War} alt='' /> Severity: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.priority}</p>
-        </div>
-      </div> */}
-      <div 
-        ref={alertRef}
-        className={`alert-box d-block d-lg-flex justify-content-between p-3 ${shouldVibrate ? 'vibrate-animation' : ''}`}
-        style={{border: "1px solid #FE5B65", borderRadius: "12px"}}
-      >
-        <div className='d-flex'>
-          <div>
-            <img src={Em} alt="" className='mx-3 my-3'/>
-          </div>
-          <div>
-            <div className="d-block d-lg-flex">
-              <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
-              <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
-              <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.deviceid}
-              </p>
-            </div>
-            <p style={{fontWeight: "600", marginBottom: "0"}}>{dataItem?.notifications?.[dataItem.notifications.length - 1]?.nature_of_request}</p>
-            <div className="d-block d-lg-flex">
-              <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
-              <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.lat}, {dataItem?.notifications?.[dataItem.notifications.length - 1]?.log}</small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
-              <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.date} | {dataItem?.notifications?.[dataItem.notifications.length - 1]?.time}</small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
-              <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {' ' + dataItem?.notifications?.[dataItem.notifications.length - 1]?.accident_type}</small>
-            </div>
-          </div>
-        </div>
-        <div className='mt-3'>
-          <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}><img src={War} alt='' /> Severity: {dataItem?.notifications?.[dataItem.notifications.length - 1]?.priority}</p>
-        </div>
-      </div>
+      )}
 
       {/* Card Carousel */}
       <CardCarousel devices={dataItem} />

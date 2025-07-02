@@ -3,6 +3,9 @@
 * {
     font-family: "Archivo", sans-serif;
 }
+body {
+    background: #F8F8F9 !important;
+}
 
 .row {
     margin: 0 !important;
@@ -24,7 +27,7 @@ input[type="checkbox"] {
     height: 18px;
     appearance: none;
     background-color: white;
-    border: 2px solid #D3D6DC;
+    border: 2px solid #D3D6DC !important;
     border-radius: 4px;
     position: relative;
     cursor: pointer;
@@ -215,6 +218,26 @@ table th, table td{
 
 } 
 
+.card-base img {
+    width: 100%;
+}
+
+@keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .notifications-container {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
 
 
 table th, table td {
@@ -228,11 +251,11 @@ table th, table td {
 table td {
     text-align: left;
     
-    font-size: 10px;
+    font-size: 12px;
     border: 1px solid rgb(177, 177, 177);
     padding-left: 20px;
     color: #6E7079;
-    font-weight: 600;
+    font-weight: 900;
     
 }
 
@@ -247,8 +270,54 @@ tbody tr td:last-child {
     width: 3% !important;
 }
 
-.my-table {
-    background: #fff;
+.my-table.borderless {
+    border: none !important;
+    border-collapse: collapse;
+}
+
+.my-table.borderless th,
+.my-table.borderless td,
+.my-table.borderless tr {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+}
+
+.no-lines-table {
+    border: none !important;
+    border-collapse: collapse;
+}
+
+.no-lines-table th,
+.no-lines-table td {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+}
+
+.no-lines-table thead tr,
+.no-lines-table tbody tr {
+    border: none !important;
+}
+
+.no-lines-table thead tr th {
+    border-bottom: none !important;
+}
+
+.no-lines-table,
+.no-lines-table * {
+    border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-collapse: collapse !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 .table-content {
@@ -434,6 +503,9 @@ hr {
   .pulse-vibrate-animation {
     animation: pulseVibrate 0.8s ease-in-out 2;
   }
+
+
+  
   
   /* Add responsive margins */
   @media (max-width: 768px) {
