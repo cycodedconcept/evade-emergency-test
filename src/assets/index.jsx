@@ -31,11 +31,16 @@ import Trash from "./trash.png"
 import Bel from "./bel.png"
 import Bel2 from "./bel2.png"
 import Bbel from "./bbel.png"
-
+import Ab from "./ab.png"
+import E from "./e.png"
+import E2 from "./e2.png"
+import E3 from "./e3.png"
+import E4 from "./e4.png"
 
 
 export {
     Logo, Side, Google, Al, Al2, Ch, Ch2, De, De2, 
     Help, Help2, La, La2, Logo2, Avatar, Em, War, Com, Pad, Act, Act2,
-    Org, Org2, Pink, Pink2, Eye, Phone, Pencil, Map, Trash, Bel, Bel2, Bbel
+    Org, Org2, Pink, Pink2, Eye, Phone, Pencil, Map, Trash, Bel, Bel2, Bbel, Ab,
+    E, E2, E3, E4
 }

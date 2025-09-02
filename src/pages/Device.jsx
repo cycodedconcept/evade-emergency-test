@@ -1,8 +1,11 @@
-import React, {useState, useEffect, useMemo} from 'react'
+import React, {useState, useEffect, useMemo, useRef} from 'react'
+import { motion, AnimatePresence } from 'framer-motion';
 import CardCarousel from './reusables/CardCarousel';
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import { useDispatch, useSelector } from 'react-redux';
 import { getDevices, addDevice, updateDevice, getDetails, closeDevice } from '../features/deviceSlice';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSearch, faSliders, faDownload, faTimes, faPen, faPhone, faSquareCheck, faExclamationTriangle, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import { Logo2 } from '../assets';
@@ -25,6 +28,7 @@ const Device = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [add, setAdd] = useState(false);
     const [currentLocation, setCurrentLocation] = useState(null);
+    const [filterItem, setFilterItem] = useState(false);
     const [deviceData, setDeviceData] = useState({
       device_id: '',
       device_number: '',
@@ -52,6 +56,7 @@ const Device = () => {
       vehicle_model_year: ''
     })
 
+
     useEffect(() => {
         if (token) {
           dispatch(getDevices({token, page: currentPage}));
@@ -77,12 +82,33 @@ const Device = () => {
         { header: "IME", accessor: "device_ime" },
         { header: "OWNER PHONE NUMBER", accessor: "owner_phone_number" },
         { header: "OWNER EMAIL", accessor: "owner_email" },
-        // { header: "VEHICLE NAME", accessor: "vehicle_name" },
-        // { header: "VEHICLE PLATE NUMBER", accessor: "vehicle_plate_number" },
-        // { header: "OWNER ADDRESS", accessor: "owner_address" },
         { header: "STATUS", accessor: "status"},
         { header: "ACTION", accessor: "action" }
     ];
+
+    useEffect(() => {
+        if (mode || add) {
+            // Save scroll position
+            const scrollY = window.scrollY;
+            
+            // Prevent body scroll
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+            document.body.style.overflow = 'hidden';
+            
+            return () => {
+                // Restore body scroll
+                document.body.style.position = '';
+                document.body.style.top = '';
+                document.body.style.width = '';
+                document.body.style.overflow = '';
+                
+                // Restore scroll position 
+                window.scrollTo(0, scrollY);
+            };
+        }
+    }, [mode, add]);
 
 
     const hideModal = () => {
@@ -121,7 +147,6 @@ const Device = () => {
       dispatch(getDetails({token, device_id: devId}))
       // setDetails(detailsItem);
       console.log(detailsItem)
-
     };
 
     const handleChange = (e) => {
@@ -265,6 +290,10 @@ const Device = () => {
           text: errorMessage,
         });
       }
+    }
+
+    const dStatus = () => {
+      setFilterItem(!filterItem)
     }
 
     const handleSubmit = async (e) => {
@@ -498,6 +527,117 @@ const Device = () => {
             <CardCarousel devices={devices} />
 
             <div className="recent-section p-3 mt-5" style={{ position: 'relative', paddingBottom: '70px' }}>
+              <div className="d-flex justify-content-between">
+                <div className="d-flex mb-3">
+                <div className="search-container mr-3">
+                <div className="position-relative">
+                    <input 
+                        type="text" 
+                        placeholder="Search..." 
+                        className="form-control"
+                        style={{ padding: '23px 40px', border: "2px solid #E8E8E9", backgroundColor: "#fff", borderRadius: '10px' }}
+                    />
+                    <FontAwesomeIcon 
+                        icon={faSearch} 
+                        className="position-absolute"
+                        style={{ 
+                            left: '15px', 
+                            top: '50%', 
+                            transform: 'translateY(-50%)',
+                            color: '#707A8F'
+                        }}
+                    />
+                </div>
+              </div>
+              <button className='fil-btn' onClick={dStatus}>
+                <FontAwesomeIcon 
+                  icon={filterItem ? faTimes : faSliders} 
+                  rotation={filterItem ? 0 : 90} 
+                  className='mr-2'
+                />
+                {filterItem ? 'Cancel' : 'Filter'}
+              </button>
+              </div>
+              <div>
+                <button className='ex-btn'><FontAwesomeIcon icon={faDownload} className='mr-2'/>Export Data</button>
+              </div>
+              </div>
+              <AnimatePresence>
+                {filterItem && (
+                  <motion.div 
+                    className="d-block d-lg-flex justify-content-between p-4" 
+                    style={{
+                      gap: '20px', 
+                      background: '#fff', 
+                      borderRadius: '15px', 
+                      border: "2px solid #E8E8E9",
+                      marginTop: '15px',
+                      overflow: 'hidden'
+                    }}
+                    initial={{ 
+                      height: 0, 
+                      opacity: 0, 
+                      y: -20,
+                      scale: 0.95
+                    }}
+                    animate={{ 
+                      height: 'auto', 
+                      opacity: 1, 
+                      y: 0,
+                      scale: 1
+                    }}
+                    exit={{ 
+                      height: 0, 
+                      opacity: 0, 
+                      y: -20,
+                      scale: 0.95
+                    }}
+                    transition={{ 
+                      duration: 0.4, 
+                      ease: [0.25, 0.46, 0.45, 0.94]
+                    }}
+                  >
+                    <motion.div
+                      className="form-group mb-4"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1, duration: 0.3 }}
+                    >
+                      <label htmlFor="methods">Methods</label>
+                      <select className="form-control">
+                        <option>Select...</option>
+                        <option>Method 1</option>
+                        <option>Method 2</option>
+                      </select>
+                    </motion.div>
+
+                    <motion.div
+                      className="form-group mb-4"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2, duration: 0.3 }}
+                    >
+                      <label htmlFor="status">Status</label>
+                      <select className="form-control">
+                        <option>Select...</option>
+                        <option>Active</option>
+                        <option>Inactive</option>
+                      </select>
+                    </motion.div>
+
+                    <motion.div
+                      className="form-group mb-4"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3, duration: 0.3 }}
+                    >
+                      <label htmlFor="date">Date</label>
+                      <input type='date' className='fdt form-control'/>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
               {loading ? (
                   <div>Loading devices data...</div>
               ) : error ? (
@@ -539,114 +679,161 @@ const Device = () => {
 
             {mode ? (
               <>
-                <div className="modal-overlay">
-                  <div className="modal-content2 spli" style={{width: '40%'}}>
-                    <div className="head-mode">
-                      <h6 style={{color: '#2E3192'}}>Device Details</h6>
-                      <button className="modal-close" onClick={hideModal}>&times;</button>
+                <div className="modal-overlay" onClick={hideModal}>
+                  <div className="modal-content2 spli" style={{width: '40%'}}  onClick={(e) => e.stopPropagation()}>
+                    <div className="head-mode d-flex justify-content-between px-4 py-4">
+                      <h5 style={{color: '#14181F'}} className='mt-3'><b>Device Details</b></h5>
+                      <div className="d-flex">
+                        <button className='fil-btn mr-3'><FontAwesomeIcon icon={faPen} className='mr-2'/>Add Note</button>
+                        <FontAwesomeIcon icon={faTimes} className="modal-close p-3 fic" onClick={hideModal} style={{border: '2px solid #e8e8e9', borderRadius: '8px'}}/>
+                      </div>
                      </div>
                     {details ? (
                       <>
                         <div className="modal-body">
-                          <div className="d-flex justify-content-between">
-                            <img src={Logo2} alt="" />
-                          </div>
-                          <hr />
-
-                          <p style={{color: '#2E3192'}}>Device Information</p>
-                          <div className="">
-                            <div className='w-100 px-lg-3 px-0 cta'>
-                              <div className="d-flex justify-content-between">
-                                <p>Device ID: </p>
-                                <p>{details.devicedetails?.device_id || 'N/A'}</p>
+                          <div className="device-top px-4 py-3" style={{background: '#EAEAF4'}}>
+                            <div className="d-flex justify-content-between mb-3">
+                              <h5>Device ID: {details.devicedetails?.device_id || 'N/A'}</h5>
+                              <button style={{background: '#2e3192', fontSize: '13px'}} className='btn text-light rounded-pill'>Strong</button>
+                            </div>
+                            <div className="d-flex justify-content-between">
+                              <div>
+                                <small className="d-block mb-4" style={{color: '#707A8F'}}>Device Number</small>
+                                <p style={{color: '#14181F'}}><FontAwesomeIcon icon={faPhone} className='mr-2'/> {details.devicedetails?.owner_phone_number}</p>
                               </div>
+                              <div>
+                                <small className="d-block mb-4" style={{color: '#707A8F'}}>Status</small>
+                                <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
+                              </div>
+                              <div>
+                                <small className="d-block mb-4" style={{color: '#707A8F'}}>Battery</small>
+                                <p style={{color: '#14181F'}}>80%</p>
+                              </div>
+                              <div>
+                                <small className="d-block mb-4" style={{color: '#707A8F'}}>LAST CHECK-IN</small>
+                                {details?.accident_history && details.accident_history.length > 0 ? (
+                                  details.accident_history.map((item) => (
+                                    <p key={item.id}>{item.date}{item.time}</p>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan="7"><p className='text-center'>No record</p></td>
+                                  </tr>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <p style={{color: '#14181F', fontSize: '18px'}} className='px-4 mt-4'><b>Device Details</b></p>
+                          <div className="">
+                            <div className='w-100 px-lg-4 px-0 cta'>
                               <div className="d-flex justify-content-between">
                                 <p>Device IME: </p>
                                 <p>{details.devicedetails?.device_ime || 'N/A'}</p>
                               </div>
                               <div className="d-flex justify-content-between">
-                                <p>Device Number: </p>
-                                <p>{details.devicedetails?.device_number || 'N/A'}</p>
+                                <p>Installation Date: </p>
+                                <p>2025-09-01</p>
                               </div>
                               <div className="d-flex justify-content-between">
-                                <p>Status: </p>
-                                <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
+                                <p>Firmware Version: </p>
+                                <p>1.2.3</p>
                               </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Longitute: </p>
-                                <p>{details.devicedetails?.log || 'N/A'}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Latitude: </p>
-                                <p>{details.devicedetails?.lat || 'N/A'}</p>
+                            </div>
+                            <div style={{border: '2px solid #eaecf0', borderRadius: '15px'}} className='mx-4 py-3'>
+                              <p style={{color: '#14181F'}} className='mx-3'><b>Vehicle Information</b></p>
+                              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
+                                <div className='w-100 px-lg-3 px-0 cta'>
+                                  <div className="d-flex justify-content-between">
+                                    <p>Vehicle Name: </p>
+                                    <p>{details.devicedetails?.vehicle_name || "N/A"}</p>
+                                  </div>
+                                  <div className="d-flex justify-content-between">
+                                    <p>Type/Model: </p>
+                                    <p>{details.devicedetails?.vehicle_model_year || "N/A"}</p>
+                                  </div>
+                                  <div className="d-flex justify-content-between">
+                                    <p>Plate Number: </p>
+                                    <p>{details.devicedetails?.vehicle_plate_number || "N/A"}</p>
+                                  </div>
+                                  <div className="d-flex justify-content-between">
+                                    <p>Vehicle Chases Number </p>
+                                    <p>{details.devicedetails?.vehicle_chasses_number || "N/A"}</p>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                             
-                            <div className='w-100'>
-                              
-                              <div className="d-flex justify-content-between">
-                                <p>Owner Name: </p>
-                                <p>{details.devicedetails?.owner_name}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Owner Email: </p>
-                                <p>{details.devicedetails?.owner_email}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Owner Phone Number: </p>
-                                <p>{details.devicedetails?.owner_phone_number}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Owner Address: </p>
-                                <p>{details.devicedetails?.owner_address}</p>
+                            <div className='mx-4 my-3 py-3' style={{border: '2px solid #eaecf0', borderRadius: '15px'}}>
+                              <p style={{color: '#14181F'}} className='mx-3'><b>Owner's Information</b></p>
+                              <div className="px-4">
+                                <div className="d-flex justify-content-between">
+                                  <p> Full Name: </p>
+                                  <p>{details.devicedetails?.owner_name}</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Email Address: </p>
+                                  <p>{details.devicedetails?.owner_email}</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Phone Number: </p>
+                                  <p>{details.devicedetails?.owner_phone_number}</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Location: </p>
+                                  <p>{details.devicedetails?.owner_address}</p>
+                                </div>
                               </div>
                             </div>
                           </div>
 
-                          <hr />
-                          <p style={{color: '#2E3192'}}>Vehicle Information</p>
-                          <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
-                            <div className='w-100 px-lg-3 px-0 cta'>
-                              <div className="d-flex justify-content-between">
-                                <p>Vehicle Name: </p>
-                                <p>{details.devicedetails?.vehicle_name || "N/A"}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Vehicle Year: </p>
-                                <p>{details.devicedetails?.vehicle_model_year || "N/A"}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Vehicle Plate Number: </p>
-                                <p>{details.devicedetails?.vehicle_plate_number || "N/A"}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Vehicle Chases Number </p>
-                                <p>{details.devicedetails?.vehicle_chasses_number || "N/A"}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <hr />
-                          <p style={{color: '#2E3192'}}>Accident Detected</p>
-                          <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
-                            <div className='w-100 px-lg-3 px-0 cta'>
-                              <div className="d-flex justify-content-between">
-                                <p>Latitude: </p>
-                                <p>{details.accident_detected?.lat || "N/A"}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Longitude: </p>
-                                <p>{details.accident_detected?.log || 'N/A'}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Accident Type: </p>
-                                <p>{details.accident_detected?.accident_type || 'N/A'}</p>
-                              </div>
-                              <div className="d-flex justify-content-between">
-                                <p>Nature Of Request </p>
-                                <p>{details.accident_detected?.nature_of_request || 'N/A'}</p>
+                          <div style={{border: '2px solid #eaecf0', borderRadius: '15px'}} className='mx-4 py-3'>
+                            <p style={{color: '#14181F'}} className='mx-3'><b>Accident Detected</b></p>
+                            <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
+                              <div className='w-100 px-lg-3 px-0 cta'>
+                                <div className="d-flex justify-content-between">
+                                  <p>Latitude: </p>
+                                  <p>{details.accident_detected?.lat || "N/A"}</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Longitude: </p>
+                                  <p>{details.accident_detected?.log || 'N/A'}</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Accident Type: </p>
+                                  <p>{details.accident_detected?.accident_type || 'N/A'}</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Nature Of Request </p>
+                                  <p>{details.accident_detected?.nature_of_request || 'N/A'}</p>
+                                </div>
                               </div>
                             </div>
                           </div>
+
+                          <div style={{border: '2px solid #eaecf0', borderRadius: '15px'}} className='mx-4 py-3 mt-3'>
+                            <div className="d-flex justify-content-between mb-3">
+                            <p style={{color: '#14181F'}} className='mx-3'><b>Sensor Health</b></p>
+                            <button className='vi-btn'>View Details</button>
+                            </div>
+                            <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
+                              <div className='w-100 px-lg-3 px-0 cta'>
+                                <div className="d-flex justify-content-between">
+                                  <p>Impact Sensors: </p>
+                                  <p><FontAwesomeIcon icon={faSquareCheck} className='rounded mr-2' style={{color: '#F9C146', fontSize: '23px'}}/>8/10 Working</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Water Sensors: </p>
+                                  <p><FontAwesomeIcon icon={faSquareCheck} className='rounded mr-2' style={{color: '#15AC77', fontSize: '23px'}}/>2/2 Working</p>
+                                </div>
+                                <div className="d-flex justify-content-between">
+                                  <p>Somersault Sensors: </p>
+                                  <p><FontAwesomeIcon icon={faSquareCheck} className='rounded mr-2' style={{color: '#15AC77', fontSize: '23px'}}/>1/1 Working</p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
                           <hr />
                           <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
                             <p>Device Location</p>
@@ -668,10 +855,16 @@ const Device = () => {
                               </LoadScript>
                           </div>
                           <hr />
-                          <p style={{color: '#2E3192'}}>Accident History</p>
-                          <div className="table-content">
+
+                          <div className="mx-3">
+                            <div className="d-flex justify-content-between px-3">
+                            <p style={{color: '#14181F'}}><b>Emmergency History</b></p>
+                            <button className='btn' style={{color: '#29A5DE'}}>View All</button>
+                          </div>
+                          <div className="table-content mb-4" style={{backgroundColor: '#fff', border: '1px solid #d3d6dc', borderRadius: '20px'}}>
                             <div className="table-container">
-                              <table className="my-table">
+                              <div className="p-0">
+                                <table className="my-table w-100 no-lines-table">
                                 <thead>
                                   <tr>
                                     <th>Emergency ID</th>
@@ -703,7 +896,12 @@ const Device = () => {
                                   }
                                 </tbody>
                               </table>
+                              </div>
+                              
                             </div>
+                          </div>
+
+                             
                           </div>
                         </div>
                       </>
@@ -712,6 +910,12 @@ const Device = () => {
                         <p>Loading data</p>
                       </>
                     )}
+
+                    <div className="mx-3 my-4">
+                      <button className='da-btn mr-lg-2 mr-0 mb-3 mb-lg-0'><FontAwesomeIcon icon={faExclamationTriangle} className='mr-2'/>Deactivate Device</button>
+                      <button className='exp-btn'><FontAwesomeIcon icon={faPaperPlane} className='mr-2'/>Export Data</button>
+                    </div>
+                    
                   </div>
                 </div>
               </>
@@ -719,11 +923,11 @@ const Device = () => {
 
             {add ? (
               <>
-                <div className="modal-overlay">
-                  <div className="modal-content2">
-                    <div className="head-mode p-3">
+                <div className="modal-overlay" onClick={hideModal}>
+                  <div className="modal-content2 spli">
+                    <div className="head-mode p-3 d-flex justify-content-between">
                       <h6 style={{color: '#2E3192'}}>Add Device Manually</h6>
-                      <button className="modal-close" onClick={hideModal}>&times;</button>
+                      <button className="modal-close" onClick={hideModal}><FontAwesomeIcon icon={faTimes} /> </button>
                     </div>
                     <hr />
                     <div className="modal-body">

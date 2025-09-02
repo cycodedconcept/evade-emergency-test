@@ -51,7 +51,7 @@ const Login = () => {
 
     try {
       Swal.fire({
-        title: "Validating Pin...",
+        title: "Validating Credentials...",
         text: "Please wait while we process your request.",
         allowOutsideClick: false,
         showConfirmButton: false,
@@ -68,33 +68,37 @@ const Login = () => {
 
       Swal.close();
 
+      if (response.message === 'Invalid credential') {
+        Swal.fire({
+          icon: 'error',
+          title: 'Login Failed',
+          text: response.message, // This will show "Invalid credential"
+          confirmButtonColor: '#1f81ec'
+        });
+        return; // Exit early, don't proceed with successful login logic
+      }
+
       if (response.message[0].type === "admin") {
         navigate('/dashboard')
       }
     } catch (error) {
-      if (error) {
-        console.error("Login Failed:", error);
-            
-          let errorMessage = "Something went wrong";
+  
+      let errorMessage = "Something went wrong";
       
-          if (error && typeof error === "object") {
-              if (Array.isArray(error)) {
-                  errorMessage = error.map(item => item.message).join(", ");
-              } else if (error.message) {
-                  errorMessage = error.message;
-              } else if (error.response && error.response.data) {
-                  errorMessage = Array.isArray(error.response.data) 
-                      ? error.response.data.map(item => item.message).join(", ") 
-                      : error.response.data.message || JSON.stringify(error.response.data);
-              }
-          }
-      
-          Swal.fire({
-              icon: "error",
-              title: "Error Occurred",
-              text: errorMessage,
-          });
+      if (error && typeof error === "object") {
+        if (error.message) {
+          errorMessage = error.message;
+        } else if (error.payload && error.payload.message) {
+          errorMessage = error.payload.message;
+        }
       }
+      
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: errorMessage,
+        confirmButtonColor: '#1f81ec'
+      });
     }
   }
 
@@ -107,7 +111,7 @@ const Login = () => {
               <h4 style={{color: '#14181F', fontWeight: '700'}}>Sign In</h4>
               <p style={{color: '#707A8F'}}>Don't have an account? <span style={{color: '#2E3192', fontWeight: '600'}}>Sign Up Here</span></p>
               
-              <form className="bg-white rounded" onSubmit={handleLogin}>
+              <form className="rounded" onSubmit={handleLogin}>
                   <div className="form-group mb-3">
                       <label htmlFor="exampleInputEmail1">Email <span style={{color: '#707A8F'}}>*</span></label>
                       <input 

@@ -1,8 +1,8 @@
-import React, {useState, useEffect, useMemo, useRef} from 'react'
+import React, {useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle} from 'react'
 import { useDispatch, useSelector } from 'react-redux';
 import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPhone, faCrosshairs, faCalendar } from '@fortawesome/free-solid-svg-icons';
+import { faPhone, faCrosshairs, faCalendar, faCarCrash, faPaperPlane, faDownload, faPrint, faPen } from '@fortawesome/free-solid-svg-icons';
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import CardCarousel from './reusables/CardCarousel';
 import Table from "./reusables/Table"
@@ -11,14 +11,15 @@ import { getDetails, closeDevice } from '../features/deviceSlice';
 import Swal from 'sweetalert2';
 
 
-import { Em, War, Logo2 } from '../assets';
+import { Em, War, Logo2, Ab } from '../assets';
 
 const containerStyle = {
   width: "100%",
   height: "400px",
+  borderRadius: '20px'
 };
 
-const Card = () => {
+const Card = forwardRef((props, ref) => {
   const dispatch = useDispatch();
   const tokenItem = localStorage.getItem("item");
   const token = tokenItem ? JSON.parse(tokenItem) : null;
@@ -35,12 +36,64 @@ const Card = () => {
   const [audioContext, setAudioContext] = useState(null);
   const [showMainAlert, setShowMainAlert] = useState(true);
   const [visibleNotifications, setVisibleNotifications] = useState([]);
+  const emergenciesTableRef = useRef(null);
+  const [hoveredItem, setHoveredItem] = useState(null);
   
   // New states for popup notifications
   const [activePopups, setActivePopups] = useState([]);
   const [processedNotifications, setProcessedNotifications] = useState(new Set());
+  const [emer, setEmer] = useState(true);
   
   const alertRef = useRef(null);
+
+  useImperativeHandle(ref, () => ({
+    scrollToTable: () => {
+      if (emergenciesTableRef.current) {
+        emergenciesTableRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    },
+    highlightRow: (deviceId) => {
+      setTimeout(() => {
+        const tableRows = document.querySelectorAll('table tbody tr');
+        tableRows.forEach(row => {
+          const deviceIdCell = row.querySelector('td:nth-child(2)');
+          if (deviceIdCell && deviceIdCell.textContent.trim() === deviceId) {
+            row.style.backgroundColor = '#fffbf0';
+            row.style.border = '2px solid #FE5B65';
+            row.style.transition = 'all 0.3s ease';
+            
+            setTimeout(() => {
+              row.style.backgroundColor = '';
+              row.style.border = '';
+            }, 3000);
+          }
+        });
+      }, 500);
+    }
+  }));
+
+   const impactData = [
+    { id: 1, area: "Left Front Door", level: "High" },
+    { id: 2, area: "INC001", level: "Medium" },
+    { id: 3, area: "INC001", level: "Low" }
+  ];
+
+  const getLevelColor = (level) => {
+    switch(level.toLowerCase()) {
+      case 'high': 
+        return {  color: '#dc2626' };
+      case 'medium': 
+        return { color: '#2563eb' };
+      case 'low': 
+        return { color: '#ea580c' };
+      default: 
+        return { color: '#374151' };
+    }
+  };
 
 useEffect(() => {
   if (!token) return;
@@ -75,32 +128,6 @@ useEffect(() => {
   return () => clearInterval(interval);
 }, [dispatch, token]);
 
-// Enhanced notification detection with popup system
-// useEffect(() => {
-//   if (!dataItem?.notifications || dataItem.notifications.length === 0) return;
-
-//   // Check for new notifications that weren't processed yet
-//   const newNotifications = dataItem.notifications.filter(notification => {
-//     const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
-//     return !processedNotifications.has(notificationId);
-//   });
-
-//   if (newNotifications.length > 0) {
-//     // Process each new notification
-//     newNotifications.forEach(notification => {
-//       const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
-      
-//       // Add to processed set
-//       setProcessedNotifications(prev => new Set([...prev, notificationId]));
-      
-//       // Create popup
-//       triggerNotificationPopup(notification);
-//     });
-
-//     // Play sound for new notifications (only once even if multiple)
-//     playNotificationSound();
-//   }
-// }, [dataItem?.notifications]);
 
 useEffect(() => {
   if (!dataItem?.notifications || dataItem.notifications.length === 0) return;
@@ -334,7 +361,8 @@ const playNotificationSound = async () => {
     const recordId = row.deviceid;
     console.log(recordId)
     dispatch(getDetails({token, device_id: recordId}))
-    setMode(true); 
+    // setMode(true); 
+    setEmer(false)
   };
 
   useEffect(() => {
@@ -365,7 +393,7 @@ const playNotificationSound = async () => {
               });
             } else {
               // Set to a default location (e.g., center of your operational area)
-              setCurrentLocation({ lat: 6.5244, lng: 3.3792 }); // Default to Lagos, Nigeria
+              setCurrentLocation({ lat: '', lng: '' }); // Default to Lagos, Nigeria
             }
             
             // Optionally show a friendly message to the user
@@ -412,245 +440,231 @@ const playNotificationSound = async () => {
         }
         
         if (details?.devicedetails?.lat && details?.devicedetails?.log) {
-          const lat = parseFloat(details.devicedetails.lat);
-          const lng = parseFloat(details.devicedetails.log);
+          const lat = parseFloat(details?.devicedetails?.lat);
+          const lng = parseFloat(details?.devicedetails?.log);
           
           if (!isNaN(lat) && !isNaN(lng)) {
             return { lat, lng };
           }
         }
         
-        return { lat: 6.5244, lng: 3.3792 }; // Default
-      }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
+        return { lat: parseFloat(details?.devicedetails?.lat), lng: parseFloat(details?.devicedetails?.log) }; // Default
+  }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
+  
+  const markerPosition = useMemo(() => {
+    if (currentLocation) return currentLocation;
+    
+    if (details?.devicedetails?.lat && details?.devicedetails?.log) {
+      const lat = parseFloat(details.devicedetails.lat);
+      const lng = parseFloat(details.devicedetails.log);
       
-      const markerPosition = useMemo(() => {
-        if (currentLocation) return currentLocation;
-        
-        if (details?.devicedetails?.lat && details?.devicedetails?.log) {
-          const lat = parseFloat(details.devicedetails.lat);
-          const lng = parseFloat(details.devicedetails.log);
-          
-          if (!isNaN(lat) && !isNaN(lng)) {
-            return { lat, lng };
-          }
-        }
-        
-        return null;
-      }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng };
+      }
+    }
+    
+    return null;
+  }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
 
-      const closeCase = async (cid) => {
-        console.log(cid)
+  // get map center
+  const getMapCenter = () => {
+  if (currentLocation) return currentLocation;
   
-        const formData = new FormData();
-        formData.append("accident_id", cid);
+  const lat = localStorage.getItem('lat');
+  const lng = localStorage.getItem('log');
   
+  if (lat && lng) {
+    return { 
+      lat: parseFloat(lat), 
+      lng: parseFloat(lng) 
+    };
+  }
+  
+  // Default fallback
+  return { lat: 6.5244, lng: 3.3792 };
+};
+
+  const closeCase = async (cid) => {
+    console.log(cid)
+
+    const formData = new FormData();
+    formData.append("accident_id", cid);
+
+    Swal.fire({
+      icon: "success",
+      title: "Validing Id!",
+      text: "Device is being closed...",
+      timer: 1500,
+      showConfirmButton: false,
+    });
+
+    try {
+      Swal.fire({
+        title: "Closing Device...",
+        text: "Please wait while we process your request.",
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+            Swal.showLoading();
+        },
+      });
+
+      const response = await dispatch(closeDevice({token, formData})).unwrap();
+
+      if (response.message === "case closed") {
         Swal.fire({
           icon: "success",
-          title: "Validing Id!",
-          text: "Device is being closed...",
-          timer: 1500,
-          showConfirmButton: false,
+          title: "Device Closed!",
+          text: `${response.message}`,
         });
-  
-        try {
-          Swal.fire({
-            title: "Closing Device...",
-            text: "Please wait while we process your request.",
-            allowOutsideClick: false,
-            showConfirmButton: false,
-            didOpen: () => {
-                Swal.showLoading();
-            },
-          });
-  
-          const response = await dispatch(closeDevice({token, formData})).unwrap();
-  
-          if (response.message === "case closed") {
-            Swal.fire({
-              icon: "success",
-              title: "Device Closed!",
-              text: `${response.message}`,
-            });
-  
-            hideModal();
-          }
-          else {
-            Swal.fire({
-              icon: "info",
-              title: "Device status",
-              text: `${response.message}`,
-            });
-          }
-        } catch (error) {
-          let errorMessage = "Something went wrong";
-                  
-          if (error && typeof error === "object") {
-              if (Array.isArray(error)) {
-                  errorMessage = error.map(item => item.message).join(", ");
-              } else if (error.message) {
-                  errorMessage = error.message;
-              } else if (error.response && error.response.data) {
-                  errorMessage = Array.isArray(error.response.data) 
-                      ? error.response.data.map(item => item.message).join(", ") 
-                      : error.response.data.message || JSON.stringify(error.response.data);
-              }
-          }
-      
-          Swal.fire({
-            icon: "error",
-            title: "Error Occurred",
-            text: errorMessage,
-          });
-        }
-      }
 
-      useEffect(() => {
-        if (dataItem?.notifications && dataItem.notifications.length > 0 && showMainAlert) {
-          const timer = setTimeout(() => {
-            setShowMainAlert(false);
-          }, 15000); // 15 seconds
-      
-          return () => clearTimeout(timer);
-        }
-      }, [dataItem?.notifications, showMainAlert]);
-      
-      // Reset showMainAlert when new notifications arrive
-      useEffect(() => {
-        if (dataItem?.notifications && dataItem.notifications.length > 0) {
-          setShowMainAlert(true);
-        }
-      }, [dataItem?.notifications?.[dataItem?.notifications?.length - 1]?.id]);
+        hideModal();
+      }
+      else {
+        Swal.fire({
+          icon: "info",
+          title: "Device status",
+          text: `${response.message}`,
+        });
+      }
+    } catch (error) {
+      let errorMessage = "Something went wrong";
+              
+      if (error && typeof error === "object") {
+          if (Array.isArray(error)) {
+              errorMessage = error.map(item => item.message).join(", ");
+          } else if (error.message) {
+              errorMessage = error.message;
+          } else if (error.response && error.response.data) {
+              errorMessage = Array.isArray(error.response.data) 
+                  ? error.response.data.map(item => item.message).join(", ") 
+                  : error.response.data.message || JSON.stringify(error.response.data);
+          }
+      }
+  
+      Swal.fire({
+        icon: "error",
+        title: "Error Occurred",
+        text: errorMessage,
+      });
+    }
+  }
+  
+  useEffect(() => {
+    if (dataItem?.notifications && dataItem.notifications.length > 0) {
+      setShowMainAlert(true);
+    }
+  }, [dataItem?.notifications?.[dataItem?.notifications?.length - 1]?.id]);
+
+  console.log(details)
 
   return (
     <>
-      <div className="d-block d-lg-flex justify-content-between p-3 mt-3 text-center">
+
+    {emer ? (
+      <>
+        <div className="d-block d-lg-flex justify-content-between p-3 mt-3">
         <div>
           <h3 style={{color: '#14181F'}}>Welcome {dataItem?.details?.name || 'User'}</h3>
           <p style={{color: '#707A8F'}}>Provides an overview of key metrics</p>
-        </div>
-        <div>
-          <div className="input-group rounded px-2 position-relative mt-0 mt-lg-3" style={{ width: "250px" }}>
-            <span className="input-group-text bg-white border-0" style={{borderTopLeftRadius: "12px", borderBottomLeftRadius: "12px"}}>
-              <FaCalendarAlt className="text-secondary" />
-            </span>
-
-            <input
-              type="date"
-              className="form-control border-0 position-relative"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              style={{
-                appearance: "none",
-                paddingLeft: "35px",
-                textIndent: selectedDate ? "0" : "50px",
-              }}
-            />
-
-            {!selectedDate && (
-              <span
-                className="position-absolute text-secondary"
-                style={{
-                  left: "50%",
-                  top: "50%",
-                  transform: "translate(-50%, -50%)",
-                  pointerEvents: "none",
-                  fontSize: "14px",
-                }}
-              >
-                This Year
-              </span>
-            )}
-
-            <span className="input-group-text bg-white border-0" style={{borderTopRightRadius: "12px", borderBottomRightRadius: "12px"}}>
-              <FaCaretDown className="text-secondary" />
-            </span>
-          </div>
         </div>
       </div>
       
       
 
-      {visibleNotifications.length > 0 && (
+      {dataItem?.notifications && dataItem.notifications.length > 0 && showMainAlert && (
         <div className="notifications-container">
-          {visibleNotifications.map((notification, index) => (
-            <div 
-              key={notification.notificationId}
-              className={`alert-box d-block d-lg-flex justify-content-between p-3 mb-3 ${notification.shouldVibrate ? 'vibrate-animation' : ''}`}
-              style={{
-                border: "1px solid #FE5B65", 
-                borderRadius: "12px",
-                position: 'relative',
-                animation: `slideIn 0.3s ease-out ${index * 0.1}s both`
-              }}
-            >
-              <div className='d-flex'>
-                <div>
-                  <img src={Em} alt="" className='mx-3 my-3'/>
-                </div>
-                <div>
-                  <div className="d-block d-lg-flex">
-                    <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
-                    <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
-                      <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {notification.deviceid}
-                    </p>
-                  </div>
-                  <p style={{fontWeight: "600", marginBottom: "0"}}>{notification.nature_of_request}</p>
-                  <div className="d-block d-lg-flex">
-                    <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
-                    <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {notification.lat}, {notification.log}</small>
-                    <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
-                    <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {notification.date} | {notification.time}</small>
-                    <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faPhone} /></small>
-                    <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {notification.accident_type}</small>
-                  </div>
-                </div>
-              </div>
-              <div className='mt-3'>
-                <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}>
-                  <img src={War} alt='' /> Severity: {notification.priority}
-                </p>
-              </div>
-              {/* Close button */}
-              <button 
-                onClick={() => closeMainNotification(notification.notificationId)}
+          {(() => {
+            // Get the last notification
+            const lastNotification = dataItem.notifications[dataItem.notifications.length - 1];
+            localStorage.setItem("lat", lastNotification.lat)
+            localStorage.setItem("log", lastNotification.log)
+            
+            return (
+              <div 
+                key={lastNotification.id || `${lastNotification.deviceid}_${lastNotification.date}_${lastNotification.time}`}
+                className={`alert-box d-block d-lg-flex justify-content-between p-3 mb-3 ${shouldVibrate ? 'vibrate-animation' : ''}`}
                 style={{
-                  position: 'absolute',
-                  top: '10px',
-                  right: '10px',
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '20px',
-                  color: '#FE5B65',
-                  cursor: 'pointer'
+                  border: "1px solid #FE5B65", 
+                  borderRadius: "12px",
+                  position: 'relative',
+                  animation: `slideIn 0.3s ease-out both`
                 }}
               >
-                &times;
-              </button>
-            </div>
-          ))}
+                <div className='d-flex'>
+                  <div>
+                    <img src={Em} alt="" className='mx-3 my-3'/>
+                  </div>
+                  <div>
+                    <div className="d-block d-lg-flex">
+                      <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
+                      <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
+                        <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {lastNotification.deviceid}
+                      </p>
+                    </div>
+                    <p style={{fontWeight: "600", marginBottom: "0"}}>{lastNotification.nature_of_request}</p>
+                    <div className="d-block d-lg-flex">
+                      <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
+                      <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {lastNotification.lat}, {lastNotification.log}</small>
+                      <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
+                      <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {lastNotification.date} | {lastNotification.time}</small>
+                      <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCarCrash} /></small>
+                      <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {lastNotification.accident_type}</small>
+                    </div>
+                  </div>
+                </div>
+                <div className='mt-3'>
+                  <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}>
+                    <img src={War} alt='' /> Severity: {lastNotification.priority}
+                  </p>
+                </div>
+                {/* Close button */}
+                <button 
+                  onClick={() => setShowMainAlert(false)}
+                  style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '20px',
+                    color: '#FE5B65',
+                    cursor: 'pointer'
+                  }}
+                >
+                  &times;
+                </button>
+              </div>
+            );
+          })()}
         </div>
       )}
 
       {/* Card Carousel */}
       <CardCarousel devices={dataItem} />
 
-      <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
-        <p>Device Location</p>
+      <div className="map-section px-4 py-4 mt-5" style={{backgroundColor: '#fff', border: '1px solid #d3d6dc', borderRadius: '20px'}}>
+        <h5>Device Location</h5>
+
         <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
           <GoogleMap
             mapContainerStyle={containerStyle}
             center={
               currentLocation || 
-              (details && details.lat && details.log 
-                ? { lat: parseFloat(details.lat), lng: parseFloat(details.log) } 
-                : { lat: 6.5244, lng: 3.3792 }) // Default to Lagos, Nigeria
+              (() => {
+                const lat = localStorage.getItem('lat');
+                const lng = localStorage.getItem('log');
+                return lat && lng 
+                  ? { lat: parseFloat(lat), lng: parseFloat(lng) } 
+                  : { lat: '', lng: '' }; // Default fallback
+              })()
             }
             zoom={10}
           >
             {currentLocation && <Marker position={currentLocation} />}
             {!currentLocation && details && details.lat && details.log && 
               <Marker 
-                position={{ lat: parseFloat(details.lat), lng: parseFloat(details.log) }} 
+                position={{ lat: parseFloat(lat), lng: parseFloat(log) }} 
                 icon={{
                   url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
                 }}
@@ -660,7 +674,7 @@ const playNotificationSound = async () => {
         </LoadScript>
       </div>
 
-      <div className="recent-section p-3">
+      <div ref={emergenciesTableRef} className="recent-section p-3">
         <p>Recent Emergencies</p>
         {!dataItem || !dataItem.records ? (
           <div>No emergency data available</div>
@@ -842,8 +856,254 @@ const playNotificationSound = async () => {
           </div>
         </div>
       )}
+      </>
+      ) : (
+      <>
+        <div className="mt-3">
+          <button className='p-3 d-btn mx-3' onClick={() => setEmer(true) }>Back to dashboard</button>
+
+          <h4 className='mt-5 p-3'>Emergency: {details.accident_detected?.deviceid}</h4>
+        </div>
+
+        <div className="row">
+          <div className="col-sm-12 col-md-12 col-lg-9">
+            <div className="jumbotron" style={{backgroundColor: '#fff', border: '2px solid #d3d6dc', borderRadius: '20px'}}>
+              <div className="d-block d-lg-flex justify-content-between mb-5">
+                <div className="log">
+                  <img src={Logo2} alt="" />
+                </div>
+                <div className="overview">
+                  <h4>Emergency Overview</h4>
+                  <div className="d-flex justify-content-between">
+                    <p style={{color: '#707A8F'}}>Emergency ID: </p>
+                    <small className="d-block">{details.accident_detected?.deviceid}</small>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p style={{color: '#707A8F'}}>Emergency Date</p>
+                    <small className="d-block">{details.accident_detected?.date}</small>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p style={{color: '#707A8F'}}>Emergency Time</p>
+                    <small className="d-block">{details.accident_detected?.time}</small>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p style={{color: '#707A8F'}}>Type</p>
+                    <small className="d-block">{details.accident_detected?.accident_type}</small>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p style={{color: '#707A8F'}}>Severity</p>
+                    <small className="d-block">{details.accident_detected?.priority}</small>
+                  </div>
+                  <div className="d-flex justify-content-between">
+                    <p style={{color: '#707A8F'}}>Status</p>
+                    <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="row">
+                <div className="col-sm-12 col-md-12 col-lg-6">
+                  <h4>Emergency Details</h4>
+                  <hr />
+                  <h4><b>Device Info</b></h4>
+                  <h6 style={{color: '#707A8F'}}>Device ID: {details.devicedetails?.device_id || 'N/A'}</h6>
+                  <h6 style={{color: '#707A8F'}}>Device Number: {details.devicedetails?.device_number || 'N/A'}</h6>
+                  <h6 style={{color: '#707A8F'}}>Device IMEI: {details.devicedetails?.device_ime || 'N/A'}</h6>
+
+                  <h4 className="mt-5">Emergency Timeline</h4>
+                  <h6 style={{color: '#707A8F'}}>14:30: Emergency detected</h6>
+                  <h6 style={{color: '#707A8F'}}>14:31: SOS button pressed</h6>
+                  <h6 style={{color: '#707A8F'}}>14:32: Alert sent to server</h6>
+                  <h6 style={{color: '#707A8F'}}>14:33: Device called by Agent</h6>
+                </div>
+                <div className="col-sm-12 col-md-12 col-lg-6">
+                  <h4>Owner's Information</h4>
+                  <hr />
+                  <h4><b>Owner Info</b></h4>
+                  <h6 style={{color: '#707A8F'}}>Full Name: {details.devicedetails?.owner_name}</h6>
+                  <h6 style={{color: '#707A8F'}}>Phone Number: {details.devicedetails?.owner_phone_number}</h6>
+                  <h6 style={{color: '#707A8F'}}>Email Address: {details.devicedetails?.owner_email}</h6>
+                  <h6 style={{color: '#707A8F'}}>Contact Address: {details.devicedetails?.owner_address}</h6>
+
+
+                  <h4 className="mt-5">Vehicle Info</h4>
+                  <h6 style={{color: '#707A8F'}}>Vehicle Name: {details.devicedetails?.vehicle_name || "N/A"}</h6>
+                  <h6 style={{color: '#707A8F'}}>Type/Model: {details.devicedetails?.vehicle_model_year || "N/A"}</h6>
+                  <h6 style={{color: '#707A8F'}}>Plate Number: {details.devicedetails?.vehicle_plate_number || "N/A"}</h6>
+                  <h6 style={{color: '#707A8F'}}>Vehicle Identification Number (VIN): {details.devicedetails?.vehicle_chasses_number || "N/A"}</h6>
+                </div>
+              </div>
+
+              <div style={styles.impactSection} className='mt-5'>
+              <div style={styles.sectionHeader}>
+                <h2 style={styles.sectionTitle}>Impacts on Vehicle</h2>
+              </div>
+              
+              <div style={styles.impactContainer}>
+                <div style={styles.impactHeader}>
+                  <span style={styles.headerText}>Area of Impact</span>
+                  <span style={styles.headerText}>Level of Impact</span>
+                </div>
+                
+                <div style={styles.impactList}>
+                  {impactData.map((impact, index) => (
+                    <div 
+                      key={impact.id || index}
+                      style={{
+                        ...styles.impactItem,
+                        ...(hoveredItem === index ? styles.impactItemHover : {})
+                      }}
+                      onMouseEnter={() => setHoveredItem(index)}
+                      onMouseLeave={() => setHoveredItem(null)}
+                    >
+                      <span style={styles.areaName}>{impact.area}</span>
+                      <span 
+                        style={{
+                          ...styles.impactLevel,
+                          ...getLevelColor(impact.level),
+                          ...(hoveredItem === index ? styles.impactLevelHover : {})
+                        }}
+                      >
+                        {impact.level}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              </div>
+
+              <div className="progress-section p-4" style={{background: '#2E3192', borderRadius: '10px'}}>
+                <div className="d-flex justify-content-between">
+                  <div className="d-flex">
+                    <img src={Ab} alt="" />
+                    <small className="d-block text-light ml-3">Emergency Location</small>
+                  </div>
+                  <div>
+                    <small className="d-block text-light">En Route (ETA: 20 minutes)</small>
+                  </div>
+                </div>
+
+                <div className="pl-5">
+                  <small className="d-block text-light">Distance: 3.5km</small>
+                  <div className="progress" style={{height: '5px'}}>
+                    <div className="progress-bar" role="progressbar" style={{width: '5%'}} aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2">
+                <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
+                <GoogleMap
+                    mapContainerStyle={containerStyle}
+                    center={mapCenter}
+                    zoom={10}
+                  >
+                    {markerPosition && (
+                      <Marker 
+                        position={markerPosition}
+                        icon={!currentLocation ? {
+                          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
+                        } : undefined}
+                      />
+                    )}
+                  </GoogleMap>
+                </LoadScript>
+              </div>
+            </div>
+          </div>
+          <div className="col-sm-12 col-md-12 col-lg-3">
+            <div className="p-3 text-center" style={{backgroundColor: '#fff', border: '2px solid #d3d6dc', borderRadius: '20px'}}>
+              <button className='sh-btn mb-2'><FontAwesomeIcon icon={faPaperPlane} className='mr-2'/>Share Details</button>
+              <button className='sh-btn mb-2'><FontAwesomeIcon icon={faDownload} className='mr-2'/>Export Emergency</button>
+              <button className='sh-btn mb-2'><FontAwesomeIcon icon={faPrint} className='mr-2'/>Update Status</button>
+              <button className='sh-btn'><FontAwesomeIcon icon={faPen} className='mr-2'/>Add Notes</button>
+
+            </div>
+          </div>
+        </div>
+      </>
+      )}
+      
     </>
   );
+});
+
+const styles = {
+  // VEHICLE IMPACT SECTION STYLES
+  impactSection: {
+    width: '100%',
+    margin: '0 auto 40px',
+    background: 'white',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    border: '2px solid #d3d6dc'
+  },
+  sectionHeader: {
+    padding: '30px 40px 20px',
+    borderBottom: '2px solid #e5e7eb'
+  },
+  sectionTitle: {
+    fontSize: '20px',
+    fontWeight: '600',
+    color: '#1f2937',
+    margin: '0'
+  },
+  impactContainer: {
+    padding: '30px 40px',
+    borderRadius: '12px',
+    margin: '40px',
+    border: '2px solid #d3d6dc'
+  },
+  impactHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '30px',
+    paddingBottom: '15px',
+    borderBottom: '1px solid #d1d5db'
+  },
+  headerText: {
+    fontSize: '16px',
+    fontWeight: '500',
+    color: '#6b7280',
+    letterSpacing: '0.5px'
+  },
+  impactList: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  impactItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '20px 0',
+    transition: 'all 0.2s ease',
+    cursor: 'pointer'
+  },
+  impactItemHover: {
+    // backgroundColor: '#f9fafb',
+    paddingLeft: '10px',
+    marginLeft: '-10px',
+    marginRight: '-10px',
+    borderRadius: '8px'
+  },
+  areaName: {
+    fontSize: '18px',
+    fontWeight: '500',
+    color: '#374151'
+  },
+  impactLevel: {
+    fontSize: '16px',
+    fontWeight: '600',
+    padding: '8px 16px',
+    borderRadius: '20px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+    transition: 'all 0.2s ease'
+  },
+  impactLevelHover: {
+    transform: 'scale(1.05)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+  },
 };
 
 export default Card;

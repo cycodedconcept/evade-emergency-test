@@ -30,6 +30,8 @@ const Dashboard = () => {
     flag: "https://flagcdn.com/w40/ng.png",
   });
 
+  const cardRef = useRef(null);
+
 
   useEffect(() => {
     if (!token) return;
@@ -110,7 +112,7 @@ const Dashboard = () => {
   const renderContent = () => {
     switch (activeMenu) {
       case "Dashboard":
-        return <Card />;
+        return <Card ref={cardRef}/>;
       case "Emergencies":
         return <Emergencies />;
       case "Device":
@@ -120,7 +122,17 @@ const Dashboard = () => {
       case "Notifications" :
         return <Notifications /> 
       default:
-        return <Card />;
+        return <Card ref={cardRef}/>;
+    }
+  };
+
+  const handleNotificationClick = (notification) => {
+    setShowNotifications(false);
+    
+    // Use the ref to Card component instead
+    if (cardRef.current) {
+      cardRef.current.scrollToTable();
+      cardRef.current.highlightRow(notification.deviceid);
     }
   };
   
@@ -130,205 +142,113 @@ const Dashboard = () => {
       <div className="main-content p-3">
         <header className='d-flex justify-content-between'>
             <div className="search-container px-3">
-                <div className="position-relative">
-                    <input 
-                        type="text" 
-                        placeholder="Search..." 
-                        className="form-control"
-                        style={{ paddingLeft: '40px', paddingRight: '15px', border: "1px solid #E8E8E9", backgroundColor: "#fff" }}
-                    />
-                    <FontAwesomeIcon 
-                        icon={faSearch} 
-                        className="position-absolute"
-                        style={{ 
-                            left: '15px', 
-                            top: '50%', 
-                            transform: 'translateY(-50%)',
-                            color: '#707A8F'
-                        }}
-                    />
-                </div>
+              <div className="position-relative">
+                  <input 
+                      type="text" 
+                      placeholder="Search..." 
+                      className="form-control"
+                      style={{ paddingLeft: '40px', paddingRight: '15px', border: "1px solid #E8E8E9", backgroundColor: "#fff" }}
+                  />
+                  <FontAwesomeIcon 
+                      icon={faSearch} 
+                      className="position-absolute"
+                      style={{ 
+                          left: '15px', 
+                          top: '50%', 
+                          transform: 'translateY(-50%)',
+                          color: '#707A8F'
+                      }}
+                  />
+              </div>
             </div>
             <div className='d-flex justify-content-between'>
-                <div style={{ position: "relative" }} className='icon-hover'>
-                    <FontAwesomeIcon
-                    icon={faCalendarAlt}
-                    style={iconStyle}
-                    onClick={() => setShowCalendar(!showCalendar)}
-                    />
-                    {showCalendar && (
-                    <div style={{ position: "absolute", top: "30px", right: "0", zIndex: "1000" }}>
-                        <DatePicker
-                        selected={selectedDate}
-                        onChange={(date) => {
-                            setSelectedDate(date);
-                            setShowCalendar(false);
-                        }}
-                        inline
-                        />
-                    </div>
-                    )}
-                </div>
-                <div style={{ position: "relative", marginLeft: "15px" }} className='icon-hover'>
-                    <FontAwesomeIcon icon={faMessage} style={iconStyle} />
-                    <span
-                        style={{
-                        position: "absolute",
-                        top: "0",
-                        right: "0",
-                        background: "#FE5B65",
-                        color: "white",
-                        fontSize: "10px",
-                        fontWeight: "bold",
-                        width: "20px",
-                        height: "20px",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderRadius: "50%",
-                        border: "2px solid white",
-                        }}
-                    >
-                        99
-                    </span>
-               </div>
+              <div ref={notificationRef} style={{ position: "relative", marginLeft: "15px" }}>
+                <FontAwesomeIcon
+                  icon={faBell}
+                  style={iconStyle}
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className='icon-hover'
+                />
 
-               <div ref={notificationRef} style={{ position: "relative", marginLeft: "15px" }}>
-                    <FontAwesomeIcon
-                        icon={faBell}
-                        style={iconStyle}
-                        onClick={() => setShowNotifications(!showNotifications)}
-                        className='icon-hover'
-                    />
+                <span
+                  style={{
+                    position: "absolute",
+                    top: "0",
+                    right: "0",
+                    background: "#FE5B65",
+                    color: "white",
+                    fontSize: "10px",
+                    fontWeight: "bold",
+                    width: "20px",
+                    height: "20px",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    borderRadius: "50%",
+                    border: "2px solid white",
+                  }}
+                >
+                  {dataItem?.notifications?.length}
+                </span>
 
-                    <span
-                        style={{
-                        position: "absolute",
-                        top: "0",
-                        right: "0",
-                        background: "#FE5B65",
-                        color: "white",
-                        fontSize: "10px",
-                        fontWeight: "bold",
-                        width: "20px",
-                        height: "20px",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        borderRadius: "50%",
-                        border: "2px solid white",
-                        }}
-                    >
-                        {dataItem?.notifications?.length}
-                    </span>
-
-                    {showNotifications && (
-                        <div
-                        style={{
-                            position: "absolute",
-                            top: "35px",
-                            right: "0",
-                            width: "250px",
-                            maxHeight: "400px",
-                            overflowY: "auto",
-                            background: "white",
-                            borderRadius: "10px",
-                            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                            zIndex: "1000",
-                            padding: "5px",
-                        }}
-                        >
-                        <h6 style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}>
-                            Notifications
-                        </h6>
-                        <ul style={{ listStyle: "none", padding: "0", margin: "0" }}>
-                            {notifications.length > 0 ? (
-                            notifications.map((notification, index) => (
-                                <li
-                                key={index}
-                                style={{
-                                    padding: "8px",
-                                    fontSize: "13px",
-                                    borderBottom: "1px solid #ddd",
-                                    cursor: "pointer",
-                                }}
-                                >
-                                {notification}
-                                </li>
-                            ))
-                            ) : (
-                            <li style={{ padding: "8px", fontSize: "13px" }}>No new notifications</li>
-                            )}
-                        </ul>
-                        </div>
-                    )}
-               </div>
-               <div style={{ position: "relative", display: "inline-block", marginLeft: "15px" }}>
-                    <div
-                        onClick={() => setShowPopup(!showPopup)}
-                        style={{
-                        width: "27px",
-                        height: "27px",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        cursor: "pointer",
-                        borderRadius: "50%",
-                        overflow: "hidden",
-                        }}
-                    >
-                        <img
-                        src={selectedCountry.flag}
-                        alt={selectedCountry.name}
-                        style={{ width: "100%", height: "100%" }}
-                        />
-                    </div>
-
-                    {showPopup && (
-                        <div
-                        style={{
-                            position: "absolute",
-                            top: "45px",
-                            right: "0",
-                            width: "250px",
-                            maxHeight: "300px",
-                            overflowY: "auto",
-                            background: "white",
-                            borderRadius: "10px",
-                            boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                            zIndex: "1000",
-                            padding: "10px",
-                        }}
-                        >
-                        <h6 style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}>
-                            Select Country
-                        </h6>
-                        <ul style={{ listStyle: "none", padding: "0", margin: "0" }}>
-                            {countries.map((country, index) => (
-                            <li
-                                key={index}
-                                onClick={() => handleSelectCountry(country)}
-                                style={{
-                                display: "flex",
-                                alignItems: "center",
-                                padding: "8px",
-                                fontSize: "13px",
-                                borderBottom: "1px solid #ddd",
-                                cursor: "pointer",
-                                }}
-                            >
-                                <img
-                                src={country.flag}
-                                alt={country.name}
-                                style={{ width: "20px", height: "15px", marginRight: "10px" }}
-                                />
-                                {country.name}
-                            </li>
-                            ))}
-                        </ul>
-                        </div>
-                    )}
-               </div>
+                {showNotifications && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "35px",
+                      right: "0",
+                      width: "250px",
+                      maxHeight: "400px",
+                      overflowY: "auto",
+                      background: "white",
+                      borderRadius: "10px",
+                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                      zIndex: "1000",
+                      padding: "5px",
+                    }}
+                  >
+                    <h6 style={{ marginBottom: "10px", fontSize: "14px", fontWeight: "bold" }}>
+                      Notifications
+                    </h6>
+                    <ul style={{ listStyle: "none", padding: "0", margin: "0" }}>
+                      {dataItem?.notifications?.length > 0 ? (
+                        dataItem.notifications.map((notification, index) => (
+                          <li
+                            key={notification.id || index}
+                            style={{
+                              padding: "8px",
+                              fontSize: "13px",
+                              borderBottom: "1px solid #ddd",
+                              cursor: "pointer",
+                              borderRadius: "5px",
+                              transition: "background-color 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = "#f8f9fa";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = "transparent";
+                            }}
+                            onClick={() => handleNotificationClick(notification)}
+                          >
+                            <div style={{ fontWeight: "bold", color: "#FE5B65" }}>
+                              Device: {notification.deviceid}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#666" }}>
+                              {notification.nature_of_request}
+                            </div>
+                            <div style={{ fontSize: "11px", color: "#999" }}>
+                              {notification.date} | {notification.time}
+                            </div>
+                          </li>
+                        ))
+                      ) : (
+                        <li style={{ padding: "8px", fontSize: "13px" }}>No new notifications</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
             
         </header>

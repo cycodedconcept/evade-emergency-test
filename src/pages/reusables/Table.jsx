@@ -76,7 +76,7 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
     return (
         <div className="table-content">
             <div className="table-container">
-              <div className="jumbotron" style={{backgroundColor: '#fff'}}>
+              <div className="jumbotron p-0" style={{backgroundColor: '#fff', border: '1px solid #d3d6dc', borderRadius: '20px'}}>
               <table className="my-table w-100 no-lines-table">
                     <thead>
                         <tr>

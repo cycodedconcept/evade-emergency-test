@@ -23,10 +23,7 @@ export const loginUser = createAsyncThunk(
            localStorage.setItem('item', JSON.stringify(response.data.message[0].token));
            return response.data;
         } catch (error) {
-            if (error.response && error.response.data) {
-                return rejectWithValue(error.response.data);
-            }
-            return rejectWithValue(error.message || "Something went wrong");
+            return rejectWithValue(error.response?.data || { message: 'Network error' });
         }
     }
 );
