@@ -12,6 +12,7 @@ import Reports from './Reports'
 import Device from './Device';
 import Notifications from './Notifications';
 import { dashboardData } from '../features/userSlice';
+import HelpCenter from './helpCenter';
 
 
 const Dashboard = () => {
@@ -121,6 +122,8 @@ const Dashboard = () => {
         return <Reports />;
       case "Notifications" :
         return <Notifications /> 
+      case "Help Center" :
+        return <HelpCenter />
       default:
         return <Card ref={cardRef}/>;
     }

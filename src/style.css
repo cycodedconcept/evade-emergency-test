@@ -681,6 +681,18 @@ background: var(--card-bg);
 height: 450px;
 }
 
+.help-card{
+  border-radius: 12px;
+  border: 1px solid rgb(226, 225, 225);
+  box-shadow: 0 6px 18px rgba(30,40,45,0.04);
+  /* padding: 10px; */
+}
+
+.help-p{
+  font-weight: 700;
+  font-size: 14px;
+}
+
 /* Titles*/
 .card-title {
 color: var(--title-color);
@@ -756,4 +768,17 @@ width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:mid
 .recharts-cartesian-grid line {
 stroke: #f0f2f5;
 }
-
+/* font weight */
+.light-font{
+  font-weight: 300;
+}
+.tiny-text{
+  font-size: 14px;
+}
+.ticket-link{
+  color: #2E3192;
+}
+.ticket-active{
+  border-bottom: 2px solid #2E3192;
+  font-weight: 600;
+}
