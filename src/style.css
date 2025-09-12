@@ -124,6 +124,10 @@ label {
     color: #2E3192;
     border: 1px solid #E8E8E9;
 }
+.bg-blue{
+  background-color: #2E3192;
+  color: #fff;
+}
 
 .vi-btn {
   color: #29A5DE;
@@ -781,4 +785,7 @@ stroke: #f0f2f5;
 .ticket-active{
   border-bottom: 2px solid #2E3192;
   font-weight: 600;
+}
+.text-blue{
+  color: #2E3192;
 }
