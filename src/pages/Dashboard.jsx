@@ -13,7 +13,7 @@ import Device from './Device';
 import Notifications from './Notifications';
 import { dashboardData } from '../features/userSlice';
 import HelpCenter from './helpCenter';
-import SubscriptionPage from './sub/subscription';
+import Subscriptions from './Subscriptions';
 
 
 const Dashboard = () => {
@@ -120,12 +120,13 @@ const Dashboard = () => {
       case "Device":
         return <Device />;
       case "Reports & Analysis":
-        return <Reports />;
+        return <Reports />; 
       case "Notifications" :
         return <Notifications /> 
       case "Help Center" :
         return <HelpCenter />
-        // return <SubscriptionPage />
+      case "Subscription & Billing" :
+        return <Subscriptions />
       default:
         return <Card ref={cardRef}/>;
     }

@@ -789,3 +789,9 @@ stroke: #f0f2f5;
 .text-blue{
   color: #2E3192;
 }
+.semi-transparent{
+  background-color: rgba(25, 135, 84, 0.3);
+}
+.text-bold{
+  font-weight: 800;
+}
