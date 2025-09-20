@@ -24,7 +24,7 @@ const SubscriptionPage = () => {
 
   return (
     <div className="">
-      <div className="row rounded-lg mb-5" style={{backgroundColor: '#fffff'}}>
+      <div className="row rounded-lg mb-5" style={{backgroundColor: 'white'}}>
         {/* Sidebar */}
         <div className="col-md-3 col-lg-3 p-3 py-4 border-right">
           <h5>Subscription & Billing</h5>
@@ -41,14 +41,14 @@ const SubscriptionPage = () => {
           <ul className="nav flex-column">
             <li className={`rounded-lg nav-item text-start text-white ${activeSection === "subscription" ? "bg-blue" : ""}`}
               onClick={() => setActiveSection("subscription")}>
-              <a href="#" className="nav-link">
+              <a href="#" className={`nav-link ${activeSection === "subscription" ? "text-white" : ""} `}>
                 <i className="bi bi-bell-fill mr-2"></i> 
                 Subscription
               </a>
             </li>
             <li className={`rounded-lg nav-item text-start ${activeSection === "billing" ? "bg-blue" : ""}`}
               onClick={() => setActiveSection("billing")}>
-              <a href="#" className="nav-link">
+              <a href="#" className={`nav-link ${activeSection === "billing" ? "text-white" : ""} `}>
                 <i className="bi bi-person-vcard mr-2"></i>
                 Billing
               </a>

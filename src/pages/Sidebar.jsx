@@ -21,7 +21,8 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
         { name: 'Device', icon: De, activeIcon: De2 },
         { name: 'Reports & Analysis', icon: Ch, activeIcon: Ch2 },
         { name: 'Notifications', icon: Bel2, activeIcon: Bel },
-        { name: 'Subscription & Billing', icon: Bel2, activeIcon: Bel }
+        { name: 'Subscription & Billing', icon: Bel2, activeIcon: Bel },
+        { name: 'API Access', icon: Bel2, activeIcon: Bel}
     ];
 
     const helpCenterItem = { name: 'Help Center', icon: Help2, activeIcon: Help };

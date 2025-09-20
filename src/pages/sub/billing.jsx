@@ -15,9 +15,10 @@ const BillingHistory = () => {
 
     return (
         <div className="col-md-9 col-lg-9 p-0 p-lg-3 py-4 mb-4">
-            <div className=" mt-4 rounded-lg">
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                    <h4>Billing History</h4>
+            <h5 className="mb-4"><i className="bi bi-person-vcard mr-2"></i>Billing</h5> <hr />
+            <div className=" mt-1 rounded-lg">
+                <div className="d-flex mt-5 justify-content-between align-items-center mb-3">
+                    <h6 className="mb-3">Billing History</h6>
                     <button className="btn btn-outline-secondary rounded-lg">
                         <i className="bi bi-cloud-download mr-1 strong"></i>
                         Download all

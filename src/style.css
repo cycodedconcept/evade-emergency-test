@@ -693,8 +693,26 @@ height: 450px;
 }
 
 .help-p{
-  font-weight: 700;
+  font-weight: 500;
+  font-size: 16px;
+  color: #14181F;
+}
+.bi-three-dots-vertical:hover{
+  background-color: rgb(204, 202, 202);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all .3s;
+}
+
+.help-p + small {
+  color: #707A8F;
   font-size: 14px;
+  
+}
+
+.pri{
+  background-color: #2E3192;
+  color: #ffffff;
 }
 
 /* Titles*/
@@ -780,11 +798,11 @@ stroke: #f0f2f5;
   font-size: 14px;
 }
 .ticket-link{
-  color: #2E3192;
+  color: #707A8F;
 }
 .ticket-active{
-  border-bottom: 2px solid #2E3192;
-  font-weight: 600;
+  border-bottom: 3px solid #2E3192;
+  font-weight: 700;
 }
 .text-blue{
   color: #2E3192;
@@ -794,4 +812,23 @@ stroke: #f0f2f5;
 }
 .text-bold{
   font-weight: 800;
+}
+.recent-search:hover{
+  background-color: #c8c8e9c6;
+  transition: all .3s;
+}
+.recent-search{
+  background-color: #F1F2F4;
+}
+a.tiny-text:hover{
+  color: initial;
+  text-decoration: none;
+}
+.edit-ticket-container i{
+  cursor: pointer;
+  font-size: 19px;
+  color: #707A8F;
+}
+.edit-ticket-container i:hover{
+  color:#111827;
 }
