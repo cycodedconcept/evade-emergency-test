@@ -4,6 +4,8 @@
   padding: 2rem;
   text-align: center;
 }
+.modal { z-index: 2000 !important; }
+.modal-backdrop { z-index: 1990 !important; }
 
 .logo {
   height: 6em;

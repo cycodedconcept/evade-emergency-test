@@ -14,6 +14,7 @@ body {
 .row {
     margin: 0 !important;
 }
+
 input, select, textarea {
   outline: none !important;
   box-shadow: none !important;
@@ -24,6 +25,11 @@ input, select, textarea {
   width: 100%;
   margin-bottom: 20px;
   color: #222;
+}
+
+.purple-check{
+  color: #2E3192;
+  font-size: 20px;
 }
 
 input[type="checkbox"] {
@@ -831,4 +837,95 @@ a.tiny-text:hover{
 }
 .edit-ticket-container i:hover{
   color:#111827;
+}
+.tab-name{
+  font-weight: 500;
+  font-size: 14px;
+  color: #0E121B;
+  max-width: 80px;
+}
+.modal-p{
+  font-weight: 500;
+  font-size: 14px;
+  color: #707A8F;
+}
+.modal-btn{
+  background-color: #EAEAF4;
+  border: 0;
+  font-size: 14px;
+  color: #2E3192;
+  font-weight: 600;
+}
+.modal-btn-light{
+  background-color: #fff;
+  border: 1px solid #E8E8E9;
+  font-size: 14px;
+  color: #707A8F;
+  font-weight: 600;
+}
+.modal { z-index: 2000 !important; }
+.modal-backdrop { z-index: 1990 !important; }
+:root {
+  --cbx-size: 22px;
+  --cbx-purple: #2E3192; /* Purple color */
+  --cbx-radius: 5px;     /* Rounded corners */
+}
+
+/* Container */
+.purple-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Hide native checkbox */
+.cbx-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Custom box */
+.cbx-box {
+  width: var(--cbx-size);
+  height: var(--cbx-size);
+  border: 2px solid var(--cbx-purple);
+  border-radius: var(--cbx-radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Checkmark */
+.cbx-box::after {
+  content: "";
+  width: 6px;
+  height: 10px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg) scale(0);
+  transform-origin: center;
+  transition: transform 0.2s ease-in-out;
+  position: absolute;
+}
+
+/* Checked state */
+.cbx-input:checked + .cbx-box {
+  background: var(--cbx-purple);
+  border-color: var(--cbx-purple);
+}
+
+.cbx-input:checked + .cbx-box::after {
+  transform: rotate(45deg) scale(1);
+}
+
+/* Label text */
+.cbx-label {
+  font-size: 0.95rem;
+  color: #222;
 }

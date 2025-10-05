@@ -15,6 +15,7 @@ import { dashboardData } from '../features/userSlice';
 import HelpCenter from './helpCenter';
 import Subscriptions from './Subscriptions';
 import ApiIntegrationsPage from './Api';
+import RoleUserManagement from './UserManagement';
 
 
 const Dashboard = () => {
@@ -128,6 +129,8 @@ const Dashboard = () => {
         return <HelpCenter />
       case "Subscription & Billing" :
         return <Subscriptions />
+      case "Role/User Management" :
+        return <RoleUserManagement />
       case "API Access" :
         return <ApiIntegrationsPage />
       default:
