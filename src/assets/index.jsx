@@ -36,11 +36,14 @@ import E from "./e.png"
 import E2 from "./e2.png"
 import E3 from "./e3.png"
 import E4 from "./e4.png"
+import usergroup from "./usergroup.png"
+import elements from "./elements.png"
+import credit from "./credit.png"
 
 
 export {
     Logo, Side, Google, Al, Al2, Ch, Ch2, De, De2, 
     Help, Help2, La, La2, Logo2, Avatar, Em, War, Com, Pad, Act, Act2,
     Org, Org2, Pink, Pink2, Eye, Phone, Pencil, Map, Trash, Bel, Bel2, Bbel, Ab,
-    E, E2, E3, E4
+    E, E2, E3, E4, usergroup, elements, credit
 }
