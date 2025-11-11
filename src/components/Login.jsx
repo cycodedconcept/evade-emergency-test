@@ -133,7 +133,7 @@ const Login = () => {
                       onClick={togglePasswordVisibility}
                       style={{
                           position: 'absolute',
-                          top: '70%',
+                          top: '57%',
                           right: '10px',
                           transform: 'translateY(-50%)',
                           cursor: 'pointer'
