@@ -519,7 +519,7 @@ const Device = () => {
 
     return (
         <>
-            <div className="text-right my-4">
+            <div className="text-right">
                 <button className='d-btn' onClick={() => setAdd(true)}><span style={{fontSize: '22px', marginRight: '10px'}}>+</span>Add New Device </button>
             </div>
             

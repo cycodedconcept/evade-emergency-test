@@ -9,7 +9,7 @@ const HelpCenter = () => {
       <h3 className='px-3 mb-0 pb-0' style={{color: '#14181F', fontSize: '28px', fontWeight: '500'}}>Help Center</h3>
       <div className='px-3 mb-5 d-flex justify-content-between align-items-center mt-0 pt-0'>
         <div>
-          <p className='my-auto' style={{color: '#707A8F',fontWeight:'600',fontWeight: '14px'}}><span className='text-blue mr-2' style={{fontSize: '14px', fontWeight: '700'}}>Dashboard</span> {'>'} <span className='ml-2'>Help Center</span></p>
+          <p className='my-auto' style={{color: '#707A8F',fontWeight:'600',fontSize: '14px'}}><span className='text-blue mr-2' style={{fontSize: '14px', fontWeight: '700'}}>Dashboard</span> {'>'} <span className='ml-2'>Help Center</span></p>
         </div>
         <div>
           <button className='btn pri px-3' style={{borderRadius: '8px',fontWeight: '600',fontStyle: '14px'}}>+ Add Tickets</button>

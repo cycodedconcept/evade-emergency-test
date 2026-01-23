@@ -866,7 +866,7 @@ const playNotificationSound = async () => {
         </div>
 
         <div className="row">
-          <div className="col-sm-12 col-md-12 col-lg-9">
+          <div className="col-sm-12 col-md-12 col-lg-8">
             <div className="jumbotron" style={{backgroundColor: '#fff', border: '2px solid #d3d6dc', borderRadius: '20px'}}>
               <div className="d-block d-lg-flex justify-content-between mb-5">
                 <div className="log">
@@ -1010,7 +1010,7 @@ const playNotificationSound = async () => {
               </div>
             </div>
           </div>
-          <div className="col-sm-12 col-md-12 col-lg-3">
+          <div className="col-sm-12 col-md-12 col-lg-4">
             <div className="p-3 text-center" style={{backgroundColor: '#fff', border: '2px solid #d3d6dc', borderRadius: '20px'}}>
               <button className='sh-btn mb-2'><FontAwesomeIcon icon={faPaperPlane} className='mr-2'/>Share Details</button>
               <button className='sh-btn mb-2'><FontAwesomeIcon icon={faDownload} className='mr-2'/>Export Emergency</button>
