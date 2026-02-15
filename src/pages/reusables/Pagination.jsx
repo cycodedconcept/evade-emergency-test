@@ -2,7 +2,7 @@ import React from 'react'
 
 const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageUrl, totalItems, perPage}) => {
     const pageNumbers = [];
-    const maxPagesToShow = 5; // Show at most 5 page numbers
+    const maxPagesToShow = 5;
     
     let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     let endPage = Math.min(lastPage, startPage + maxPagesToShow - 1);
@@ -15,50 +15,78 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
       pageNumbers.push(i);
     }
 
+    const baseButtonStyle = {
+      minWidth: '40px',
+      height: '40px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      border: '1px solid #E8E8E9',
+      borderRadius: '8px',
+      backgroundColor: '#fff',
+      color: '#14181F',
+      fontWeight: '500',
+      fontSize: '14px',
+      cursor: 'pointer',
+      transition: 'all 0.2s ease',
+      margin: '0 4px'
+    };
+
+    const activeButtonStyle = {
+      ...baseButtonStyle,
+      backgroundColor: '#2E3192',
+      color: '#fff',
+      border: '1px solid #2E3192'
+    };
+
+    const disabledButtonStyle = {
+      ...baseButtonStyle,
+      backgroundColor: '#F5F5F5',
+      color: '#A0A0A0',
+      cursor: 'not-allowed'
+    };
+
+    const navButtonStyle = {
+      ...baseButtonStyle,
+      padding: '0 12px'
+    };
+
   return (
     <>
-     <div className="pagination-container d-flex justify-content-between align-items-center mt-4">
+     <div className="d-flex justify-content-between align-items-center px-2">
       <div>
-        <p className="mb-0 text-muted">
-          Showing {Math.min((currentPage - 1) * perPage + 1, totalItems)} to {Math.min(currentPage * perPage, totalItems)} of {totalItems} entries
+        <p className="mb-0" style={{ color: '#707A8F', fontSize: '14px' }}>
+          Showing <span style={{ fontWeight: '600', color: '#14181F' }}>{Math.min((currentPage - 1) * perPage + 1, totalItems)}</span> to <span style={{ fontWeight: '600', color: '#14181F' }}>{Math.min(currentPage * perPage, totalItems)}</span> of <span style={{ fontWeight: '600', color: '#14181F' }}>{totalItems}</span> entries
         </p>
       </div>
       
-      <ul className="pagination mb-0">
-        <li className={`page-item ${!prevPageUrl ? 'disabled' : ''}`}>
-          <button 
-            className="page-link" 
-            onClick={() => prevPageUrl && onPageChange(currentPage - 1)}
-            disabled={!prevPageUrl}
-          >
-            &laquo;
-          </button>
-        </li>
+      <div className="d-flex align-items-center">
+        <button 
+          style={!prevPageUrl ? disabledButtonStyle : navButtonStyle}
+          onClick={() => prevPageUrl && onPageChange(currentPage - 1)}
+          disabled={!prevPageUrl}
+        >
+          ← Prev
+        </button>
         
         {pageNumbers.map(number => (
-          <li 
+          <button 
             key={number} 
-            className={`page-item ${currentPage === number ? 'active' : ''}`}
+            style={currentPage === number ? activeButtonStyle : baseButtonStyle}
+            onClick={() => onPageChange(number)}
           >
-            <button 
-              className="page-link" 
-              onClick={() => onPageChange(number)}
-            >
-              {number}
-            </button>
-          </li>
+            {number}
+          </button>
         ))}
         
-        <li className={`page-item ${!nextPageUrl ? 'disabled' : ''}`}>
-          <button 
-            className="page-link" 
-            onClick={() => nextPageUrl && onPageChange(currentPage + 1)}
-            disabled={!nextPageUrl}
-          >
-            &raquo;
-          </button>
-        </li>
-      </ul>
+        <button 
+          style={!nextPageUrl ? disabledButtonStyle : navButtonStyle}
+          onClick={() => nextPageUrl && onPageChange(currentPage + 1)}
+          disabled={!nextPageUrl}
+        >
+          Next →
+        </button>
+      </div>
      </div>
     </>
   )

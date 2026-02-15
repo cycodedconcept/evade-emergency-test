@@ -244,7 +244,7 @@ const Emergencies = () => {
               />
           </div>
         </div>
-        <button className='fil-btn'><FontAwesomeIcon icon={faSliders} rotation={90} className='mr-2'/>Filter</button>
+        <button className='fil-btn' style={{ height: '48px', display: 'flex', alignItems: 'center' }}><FontAwesomeIcon icon={faSliders} rotation={90} className='mr-2'/>Filter</button>
         </div>
         <div>
           <button className='ex-btn'><FontAwesomeIcon icon={faDownload} className='mr-2'/>Export Data</button>

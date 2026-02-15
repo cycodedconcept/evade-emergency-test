@@ -1,8 +1,30 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Eye, Pencil, Phone, Map, Trash } from "../../assets"
 
 const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phone', 'eye', 'pencil'] }) => {
     const [selectedRows, setSelectedRows] = useState([]);
+    const [showScrollHint, setShowScrollHint] = useState(false);
+    const tableContainerRef = useRef(null);
+
+    useEffect(() => {
+        const container = tableContainerRef.current;
+        if (!container) return;
+
+        const checkScroll = () => {
+            const hasOverflow = container.scrollWidth > container.clientWidth;
+            const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 10;
+            setShowScrollHint(hasOverflow && !isAtEnd);
+        };
+
+        checkScroll();
+        container.addEventListener('scroll', checkScroll);
+        window.addEventListener('resize', checkScroll);
+
+        return () => {
+            container.removeEventListener('scroll', checkScroll);
+            window.removeEventListener('resize', checkScroll);
+        };
+    }, [data]);
     
     const renderActionColumn = (row) => (
         <div className="d-flex" style={{gap: "10px"}}>
@@ -73,10 +95,51 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
         return <div>No data available</div>;
     }
 
+    const scrollIndicatorStyle = {
+        position: 'absolute',
+        right: '10px',
+        top: '20%',
+        transform: 'translateY(-50%)',
+        backgroundColor: 'rgba(46, 49, 146, 0.9)',
+        color: '#fff',
+        padding: '10px 12px',
+        borderRadius: '50%',
+        cursor: 'pointer',
+        zIndex: 10,
+        animation: 'bounceRight 1s infinite',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+    };
+
     return (
-        <div className="table-content">
-            <div className="table-container">
-              <div className="jumbotron p-0" style={{backgroundColor: '#fff', border: '1px solid #d3d6dc', borderRadius: '20px'}}>
+        <div className="table-content" style={{ position: 'relative' }}>
+            <style>
+                {`
+                    @keyframes bounceRight {
+                        0%, 100% { transform: translateY(-50%) translateX(0); }
+                        50% { transform: translateY(-50%) translateX(5px); }
+                    }
+                `}
+            </style>
+            
+            {showScrollHint && (
+                <div 
+                    style={scrollIndicatorStyle}
+                    onClick={() => {
+                        const container = tableContainerRef.current;
+                        if (container) {
+                            container.scrollBy({ left: 150, behavior: 'smooth' });
+                        }
+                    }}
+                >
+                    →
+                </div>
+            )}
+            
+            <div 
+                ref={tableContainerRef}
+                className="table-container" 
+                style={{backgroundColor: '#fff', border: '1px solid #d3d6dc', borderRadius: '20px', overflowX: 'auto'}}
+            >
               <table className="my-table w-100 no-lines-table">
                     <thead>
                         <tr>
@@ -146,8 +209,6 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
                         ))}
                     </tbody>
                 </table>
-              </div>
-                
             </div>
         </div>
     );

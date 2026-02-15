@@ -575,8 +575,35 @@ const playNotificationSound = async () => {
       {dataItem?.notifications && dataItem.notifications.length > 0 && showMainAlert && (
         <div className="notifications-container">
           {(() => {
-            // Get the last notification
-            const lastNotification = dataItem.notifications[dataItem.notifications.length - 1];
+            // Sort notifications by date and time (most recent first)
+            const sortedNotifications = [...dataItem.notifications].sort((a, b) => {
+              // Parse date (handles formats like "2026-02-15" or "15-02-2026" or "02/15/2026")
+              const parseDateTime = (dateStr, timeStr) => {
+                if (!dateStr) return 0;
+                // Try to extract year from the date string
+                const parts = dateStr.split(/[-/]/);
+                let year, month, day;
+                
+                // Check if first part is year (YYYY-MM-DD)
+                if (parts[0] && parts[0].length === 4) {
+                  [year, month, day] = parts;
+                } else if (parts[2] && parts[2].length === 4) {
+                  // DD-MM-YYYY or MM/DD/YYYY format
+                  [day, month, year] = parts;
+                } else {
+                  // Fallback to default parsing
+                  return new Date(`${dateStr} ${timeStr || '00:00:00'}`).getTime() || 0;
+                }
+                
+                const time = timeStr || '00:00:00';
+                return new Date(`${year}-${month}-${day} ${time}`).getTime() || 0;
+              };
+              
+              const dateTimeA = parseDateTime(a.date, a.time);
+              const dateTimeB = parseDateTime(b.date, b.time);
+              return dateTimeB - dateTimeA; // Descending order (most recent first)
+            });
+            const lastNotification = sortedNotifications[0];
             localStorage.setItem("lat", lastNotification.lat)
             localStorage.setItem("log", lastNotification.log)
             

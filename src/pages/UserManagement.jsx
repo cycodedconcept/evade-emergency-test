@@ -238,7 +238,7 @@ export default function RoleUserManagement() {
     <div className="container-fluid py-3 pt-2">
         <h3 className=' mb-0 pb-0 mb-3' style={{color: '#14181F', fontSize: '28px', fontWeight: '500'}}>Role/User Management</h3>
         <div className="mb-4">
-          <p className='my-auto' style={{color: '#707A8F',fontWeight:'600',fontWeight: '14px'}}><span className='text-blue mr-2' style={{fontSize: '14px', fontWeight: '700'}}>Dashboard</span> {'>'} <span className='ml-2'>Role/User Management</span></p>
+          <p className='my-auto' style={{color: '#707A8F',fontWeight:'600'}}><span className='text-blue mr-2' style={{fontSize: '14px', fontWeight: '700'}}>Dashboard</span> {'>'} <span className='ml-2'>Role/User Management</span></p>
         </div>
       <div className="row bg-white rounded-button">
         {/* Sidebar */}
