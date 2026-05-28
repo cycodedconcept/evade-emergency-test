@@ -5,8 +5,6 @@ import Al from "./al.png";
 import Al2 from "./al2.png";
 import Ch from "./ch.png";
 import Ch2 from "./ch2.png";
-import De from "./de.png";
-import De2 from "./de2.png";
 import Help from "./help.png";
 import Help2 from "./help2.png";
 import La from "./la.png";
@@ -42,7 +40,7 @@ import credit from "./credit.png"
 
 
 export {
-    Logo, Side, Google, Al, Al2, Ch, Ch2, De, De2, 
+    Logo, Side, Google, Al, Al2, Ch, Ch2,
     Help, Help2, La, La2, Logo2, Avatar, Em, War, Com, Pad, Act, Act2,
     Org, Org2, Pink, Pink2, Eye, Phone, Pencil, Map, Trash, Bel, Bel2, Bbel, Ab,
     E, E2, E3, E4, usergroup, elements, credit

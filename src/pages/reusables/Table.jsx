@@ -1,7 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { Eye, Pencil, Phone, Map, Trash } from "../../assets"
 
-const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phone', 'eye', 'pencil'] }) => {
+const Table = ({
+    columns,
+    data,
+    onView,
+    onRowClick,
+    onEdit,
+    onCall,
+    onMap,
+    onDelete,
+    actionIcons = ['phone', 'eye', 'pencil']
+}) => {
     const [selectedRows, setSelectedRows] = useState([]);
     const [showScrollHint, setShowScrollHint] = useState(false);
     const tableContainerRef = useRef(null);
@@ -26,9 +36,12 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
         };
     }, [data]);
     
-    const renderActionColumn = (row) => (
+    const renderActionColumn = (row) => {
+        const rowActionIcons = Array.isArray(row?.actionIcons) ? row.actionIcons : actionIcons;
+
+        return (
         <div className="d-flex" style={{gap: "10px"}}>
-            {actionIcons.includes('phone') && (
+            {rowActionIcons.includes('phone') && (
               <img 
                 src={Phone} 
                 alt="" 
@@ -40,7 +53,7 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
               />
             )}
             
-            {actionIcons.includes('eye') && (
+            {rowActionIcons.includes('eye') && (
               <img 
                 src={Eye} 
                 alt="" 
@@ -52,7 +65,7 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
               />
             )}
             
-            {actionIcons.includes('pencil') && (
+            {rowActionIcons.includes('pencil') && (
               <img 
                 src={Pencil} 
                 alt="" 
@@ -64,7 +77,7 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
               />
             )}
             
-            {actionIcons.includes('map') && (
+            {rowActionIcons.includes('map') && (
               <img 
                 src={Map} 
                 alt="" 
@@ -76,7 +89,7 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
               />
             )}
             
-            {actionIcons.includes('trash') && (
+            {rowActionIcons.includes('trash') && (
               <img 
                 src={Trash} 
                 alt="" 
@@ -88,11 +101,12 @@ const Table = ({ columns, data, onView, onRowClick, onEdit, actionIcons = ['phon
               />
             )}
         </div>
-    );
+        );
+    };
 
     // Check if data is available
     if (!data || !Array.isArray(data) || data.length === 0) {
-        return <div>No data available</div>;
+        return <div className='text-center text-muted'>No data available</div>;
     }
 
     const scrollIndicatorStyle = {

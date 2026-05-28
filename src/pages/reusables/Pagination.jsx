@@ -3,6 +3,8 @@ import React from 'react'
 const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageUrl, totalItems, perPage}) => {
     const pageNumbers = [];
     const maxPagesToShow = 5;
+    const hasPreviousPage = currentPage > 1 || Boolean(prevPageUrl);
+    const hasNextPage = currentPage < lastPage || Boolean(nextPageUrl);
     
     let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     let endPage = Math.min(lastPage, startPage + maxPagesToShow - 1);
@@ -29,7 +31,7 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
       fontSize: '14px',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
-      margin: '0 4px'
+      margin: 0
     };
 
     const activeButtonStyle = {
@@ -53,24 +55,26 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
 
   return (
     <>
-     <div className="d-flex justify-content-between align-items-center px-2">
-      <div>
+     <div className="pagination-shell d-flex justify-content-between align-items-center px-2">
+      <div className="pagination-info">
         <p className="mb-0" style={{ color: '#707A8F', fontSize: '14px' }}>
           Showing <span style={{ fontWeight: '600', color: '#14181F' }}>{Math.min((currentPage - 1) * perPage + 1, totalItems)}</span> to <span style={{ fontWeight: '600', color: '#14181F' }}>{Math.min(currentPage * perPage, totalItems)}</span> of <span style={{ fontWeight: '600', color: '#14181F' }}>{totalItems}</span> entries
         </p>
       </div>
       
-      <div className="d-flex align-items-center">
+      <div className="pagination-buttons d-flex align-items-center">
         <button 
-          style={!prevPageUrl ? disabledButtonStyle : navButtonStyle}
-          onClick={() => prevPageUrl && onPageChange(currentPage - 1)}
-          disabled={!prevPageUrl}
+          className="pagination-button"
+          style={!hasPreviousPage ? disabledButtonStyle : navButtonStyle}
+          onClick={() => hasPreviousPage && onPageChange(currentPage - 1)}
+          disabled={!hasPreviousPage}
         >
           ← Prev
         </button>
         
         {pageNumbers.map(number => (
           <button 
+            className="pagination-button"
             key={number} 
             style={currentPage === number ? activeButtonStyle : baseButtonStyle}
             onClick={() => onPageChange(number)}
@@ -80,9 +84,10 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
         ))}
         
         <button 
-          style={!nextPageUrl ? disabledButtonStyle : navButtonStyle}
-          onClick={() => nextPageUrl && onPageChange(currentPage + 1)}
-          disabled={!nextPageUrl}
+          className="pagination-button"
+          style={!hasNextPage ? disabledButtonStyle : navButtonStyle}
+          onClick={() => hasNextPage && onPageChange(currentPage + 1)}
+          disabled={!hasNextPage}
         >
           Next →
         </button>

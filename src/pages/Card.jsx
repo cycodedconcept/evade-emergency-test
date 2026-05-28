@@ -1,50 +1,148 @@
-import React, {useState, useEffect, useMemo, useRef, forwardRef, useImperativeHandle} from 'react'
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FaCalendarAlt, FaCaretDown } from "react-icons/fa";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPhone, faCrosshairs, faCalendar, faCarCrash, faPaperPlane, faDownload, faPrint, faPen } from '@fortawesome/free-solid-svg-icons';
-import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
+import {
+  faPhone,
+  faPhoneVolume,
+  faCrosshairs,
+  faCalendar,
+  faCarCrash,
+  faLocationArrow,
+  faMapLocationDot,
+} from '@fortawesome/free-solid-svg-icons';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import CardCarousel from './reusables/CardCarousel';
-import Table from "./reusables/Table"
-import { dashboardData } from '../features/userSlice';
-import { getDetails, closeDevice } from '../features/deviceSlice';
-import Swal from 'sweetalert2';
+import Table from './reusables/Table';
+import Pagination from './reusables/Pagination';
+import { dashboardData, emergencyDetails } from '../features/dashboardSlice';
+import { closeEmergencyCase } from '../features/createSlice';
+import {
+  Em,
+  War,
+  Logo2,
+  Com,
+  Pad,
+  Pink,
+  Pink2,
+  Org,
+  Org2,
+  Act,
+  Act2,
+} from '../assets';
 
-
-import { Em, War, Logo2, Ab } from '../assets';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY';
 
 const containerStyle = {
-  width: "100%",
-  height: "400px",
-  borderRadius: '20px'
+  width: '100%',
+  height: '400px',
+  borderRadius: '20px',
+};
+
+const defaultCenter = { lat: 6.5244, lng: 3.3792 };
+
+const getStoredToken = () => {
+  const tokenItem = localStorage.getItem('item');
+
+  if (!tokenItem) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(tokenItem);
+  } catch (error) {
+    return tokenItem;
+  }
+};
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toLatLng = (lat, lng) => {
+  const parsedLat = toNumber(lat);
+  const parsedLng = toNumber(lng);
+
+  if (parsedLat === null || parsedLng === null) {
+    return null;
+  }
+
+  return { lat: parsedLat, lng: parsedLng };
+};
+
+const buildGoogleEmbedMapUrl = (lat, lng) => {
+  const coordinates = toLatLng(lat, lng);
+
+  if (!coordinates) {
+    return '';
+  }
+
+  return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}&z=15&output=embed`;
+};
+
+const parseDateTime = (row) => {
+  if (row?.date_time) {
+    const parsed = new Date(row.date_time).getTime();
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const fallback = new Date(`${row?.date || ''} ${row?.time || ''}`).getTime();
+  return Number.isNaN(fallback) ? 0 : fallback;
+};
+
+const formatDateTimeLabel = (row) => {
+  if (row?.date_time) {
+    return row.date_time;
+  }
+
+  return [row?.date, row?.time].filter(Boolean).join(' | ') || 'N/A';
+};
+
+const toMetricNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const buildCardChartData = (card) => {
+  const total = toMetricNumber(card?.value);
+  const today = Math.max(toMetricNumber(card?.today), 0);
+
+  return [
+    { label: 'Earlier', value: Math.max(total - today, 0) },
+    { label: 'Today', value: today },
+  ];
+};
+
+const severityStyles = {
+  Fatal: { color: '#FE5B65' },
+  'Non-Fatal': { color: '#2E3192' },
 };
 
 const Card = forwardRef((props, ref) => {
   const dispatch = useDispatch();
-  const tokenItem = localStorage.getItem("item");
-  const token = tokenItem ? JSON.parse(tokenItem) : null;
-  const { loading, error, dataItem } = useSelector((state) => state.user);
-  const { detailsItem } = useSelector((state) => state.device);
-  const [selectedDate, setSelectedDate] = useState("");
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const [mode, setMode] = useState(false);
-  const [details, setDetails] = useState({});
-  const [isBackgroundRefresh, setIsBackgroundRefresh] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState(null);
-  const [shouldVibrate, setShouldVibrate] = useState(false);
-  const [lastNotificationId, setLastNotificationId] = useState(null);
-  const [audioContext, setAudioContext] = useState(null);
+  const token = getStoredToken();
+  const {
+    loading,
+    error,
+    dataItem,
+    emergency,
+    emergencyLoading,
+    emergencyError,
+  } = useSelector((state) => state.dashboard);
+  const [selectedIncident, setSelectedIncident] = useState(null);
   const [showMainAlert, setShowMainAlert] = useState(true);
-  const [visibleNotifications, setVisibleNotifications] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [closingCaseId, setClosingCaseId] = useState(null);
   const emergenciesTableRef = useRef(null);
-  const [hoveredItem, setHoveredItem] = useState(null);
-  
-  // New states for popup notifications
-  const [activePopups, setActivePopups] = useState([]);
-  const [processedNotifications, setProcessedNotifications] = useState(new Set());
-  const [emer, setEmer] = useState(true);
-  
-  const alertRef = useRef(null);
 
   useImperativeHandle(ref, () => ({
     scrollToTable: () => {
@@ -52,20 +150,30 @@ const Card = forwardRef((props, ref) => {
         emergenciesTableRef.current.scrollIntoView({
           behavior: 'smooth',
           block: 'start',
-          inline: 'nearest'
+          inline: 'nearest',
         });
       }
     },
-    highlightRow: (deviceId) => {
+    highlightRow: (valueToMatch) => {
+      if (!valueToMatch) return;
+
       setTimeout(() => {
         const tableRows = document.querySelectorAll('table tbody tr');
-        tableRows.forEach(row => {
-          const deviceIdCell = row.querySelector('td:nth-child(2)');
-          if (deviceIdCell && deviceIdCell.textContent.trim() === deviceId) {
+        tableRows.forEach((row) => {
+          const deviceNumberCell = row.querySelector('td:nth-child(2)');
+          const emergencyIdCell = row.querySelector('td:nth-child(3)');
+          const matchesDevice =
+            deviceNumberCell &&
+            deviceNumberCell.textContent.trim() === valueToMatch;
+          const matchesEmergency =
+            emergencyIdCell &&
+            emergencyIdCell.textContent.trim() === valueToMatch;
+
+          if (matchesDevice || matchesEmergency) {
             row.style.backgroundColor = '#fffbf0';
             row.style.border = '2px solid #FE5B65';
             row.style.transition = 'all 0.3s ease';
-            
+
             setTimeout(() => {
               row.style.backgroundColor = '';
               row.style.border = '';
@@ -73,1064 +181,810 @@ const Card = forwardRef((props, ref) => {
           }
         });
       }, 500);
-    }
+    },
   }));
 
-   const impactData = [
-    { id: 1, area: "Left Front Door", level: "High" },
-    { id: 2, area: "INC001", level: "Medium" },
-    { id: 3, area: "INC001", level: "Low" }
-  ];
-
-  const getLevelColor = (level) => {
-    switch(level.toLowerCase()) {
-      case 'high': 
-        return {  color: '#dc2626' };
-      case 'medium': 
-        return { color: '#2563eb' };
-      case 'low': 
-        return { color: '#ea580c' };
-      default: 
-        return { color: '#374151' };
-    }
-  };
-
-useEffect(() => {
-  if (!token) return;
-
-  const fetchData = async (isInitial = false) => {
-    try {
-      if (!isInitial) {
-        setIsBackgroundRefresh(true);
-      }
-
-      await dispatch(dashboardData({token})).unwrap();
-      
-      if (!isInitial) {
-        setLastRefresh(new Date());
-        // Brief delay to show success, then hide
-        setTimeout(() => setIsBackgroundRefresh(false), 1000);
-      }
-    } catch (error) {
-      console.error('Refresh failed:', error);
-      setIsBackgroundRefresh(false);
-      
-      // Only alert for auth errors, silently handle others
-      if (typeof error === 'string' && error.includes('Authentication failed')) {
-        alert('Your session has expired. Please log in again.');
-      }
-    }
-  };
-
-  fetchData(true);
-  const interval = setInterval(() => fetchData(false), 20000);
-
-  return () => clearInterval(interval);
-}, [dispatch, token]);
-
-
-useEffect(() => {
-  if (!dataItem?.notifications || dataItem.notifications.length === 0) return;
-
-  // Check for new notifications that weren't processed yet
-  const newNotifications = dataItem.notifications.filter(notification => {
-    const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
-    return !processedNotifications.has(notificationId);
-  });
-
-  if (newNotifications.length > 0) {
-    // Process each new notification
-    newNotifications.forEach(notification => {
-      const notificationId = notification.id || `${notification.deviceid}_${notification.date}_${notification.time}`;
-      
-      // Add to processed set
-      setProcessedNotifications(prev => new Set([...prev, notificationId]));
-      
-      // Add to visible notifications with auto-remove timer
-      const notificationWithTimer = {
-        ...notification,
-        notificationId,
-        timestamp: Date.now(),
-        shouldVibrate: true
-      };
-
-      setVisibleNotifications(prev => [...prev, notificationWithTimer]);
-
-      // Auto-remove from visible notifications after 15 seconds
-      setTimeout(() => {
-        setVisibleNotifications(prev => 
-          prev.filter(item => item.notificationId !== notificationId)
-        );
-      }, 15000);
-
-      // Stop vibration after 2 seconds
-      setTimeout(() => {
-        setVisibleNotifications(prev => 
-          prev.map(item => 
-            item.notificationId === notificationId 
-              ? { ...item, shouldVibrate: false }
-              : item
-          )
-        );
-      }, 2000);
-
-      // Create popup (keep your existing popup logic)
-      triggerNotificationPopup(notification);
-    });
-
-    // Play sound for new notifications (only once even if multiple)
-    playNotificationSound();
-  }
-}, [dataItem?.notifications]);
-
-const closeMainNotification = (notificationId) => {
-  setVisibleNotifications(prev => 
-    prev.filter(item => item.notificationId !== notificationId)
-  );
-};
-
-// Function to create notification popup
-const triggerNotificationPopup = (notification) => {
-  const popupId = `popup-${Date.now()}-${Math.random()}`;
-  const newPopup = {
-    ...notification,
-    popupId,
-    timestamp: Date.now(),
-    shouldVibrate: true
-  };
-
-  setActivePopups(prev => [...prev, newPopup]);
-
-  // Auto-remove after 20 seconds
-  setTimeout(() => {
-    setActivePopups(prev => prev.filter(popup => popup.popupId !== popupId));
-  }, 20000);
-
-  // Stop vibration after 2 seconds
-  setTimeout(() => {
-    setActivePopups(prev => 
-      prev.map(popup => 
-        popup.popupId === popupId 
-          ? { ...popup, shouldVibrate: false }
-          : popup
-      )
-    );
-  }, 2000);
-};
-
-// Function to manually close a popup
-const closeNotificationPopup = (popupId) => {
-  setActivePopups(prev => prev.filter(popup => popup.popupId !== popupId));
-};
-
-// Original notification effect for the main alert box
-useEffect(() => {
-  const currentNotification = dataItem?.notifications?.[dataItem.notifications.length - 1];
-  const currentId = currentNotification?.id || currentNotification?.deviceid + currentNotification?.date + currentNotification?.time;
-  
-  if (currentId && currentId !== lastNotificationId && lastNotificationId !== null) {
-    // New notification detected, trigger vibration for main alert
-    setShouldVibrate(true);
-    
-    // Remove vibration class after animation completes
-    setTimeout(() => {
-      setShouldVibrate(false);
-    }, 1000);
-  }
-  
-  setLastNotificationId(currentId);
-}, [dataItem?.notifications, lastNotificationId]);
-
-// audio file section
-useEffect(() => {
-  // Create audio context on first user interaction to comply with browser policies
-  const initAudioContext = () => {
-    if (!audioContext) {
-      const context = new (window.AudioContext || window.webkitAudioContext)();
-      setAudioContext(context);
-    }
-  };
-
-  // Add event listener for first user interaction
-  document.addEventListener('click', initAudioContext, { once: true });
-  document.addEventListener('touchstart', initAudioContext, { once: true });
-
-  return () => {
-    document.removeEventListener('click', initAudioContext);
-    document.removeEventListener('touchstart', initAudioContext);
-  };
-}, [audioContext]);
-
-
-const playNotificationSound = async () => {
-  if (!audioContext) return;
-  
-  try {
-    // Resume audio context if it's suspended
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
-    }
-
-    // Create a synthetic alert sound using Web Audio API
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    // Connect the nodes
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // Configure the sound (urgent alert tone)
-    oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // High frequency for urgency
-    oscillator.type = 'sine';
-    
-    // Create envelope for the sound
-    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-    gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-    
-    // Play the sound
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
-    
-    // Create a second beep for double alert
-    setTimeout(() => {
-      const oscillator2 = audioContext.createOscillator();
-      const gainNode2 = audioContext.createGain();
-      
-      oscillator2.connect(gainNode2);
-      gainNode2.connect(audioContext.destination);
-      
-      oscillator2.frequency.setValueAtTime(1000, audioContext.currentTime);
-      oscillator2.type = 'sine';
-      
-      gainNode2.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode2.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-      gainNode2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
-      
-      oscillator2.start(audioContext.currentTime);
-      oscillator2.stop(audioContext.currentTime + 0.5);
-    }, 600);
-    
-  } catch (error) {
-    console.error('Error playing notification sound:', error);
-  }
-};
-  
-  const columns = [
-    { header: "INDEX", accessor: "index" },
-    { header: "DEVICE ID", accessor: "deviceid" },
-    { header: "NAME", accessor: "name" },
-    { header: "TYPE", accessor: "accident_type" },
-    { header: "REQUEST", accessor: "nature_of_request" },
-    { header: "DATE", accessor: "date" },
-    { header: "TIME", accessor: "time" },
-    { header: "STATUS", accessor: "closed_status" },
-    { header: "ACTION", accessor: "action" }
-  ];
-
-  // Safe data transformation with error handling
-  const formattedTableData = [];
-  if (dataItem && dataItem.records && Array.isArray(dataItem.records)) {
-    dataItem.records.forEach((item, index) => {
-      if (item) { // Make sure item exists
-        formattedTableData.push({
-          index: index + 1,
-          deviceid: item.deviceid || "N/A",
-          name: item.name || "-----",
-          accident_type: item.accident_type || "-----",
-          nature_of_request: item.nature_of_request || "-----",
-          date: item.date || "-----",
-          time: item.time || "-----",
-          closed_status: item.closed_status, // For the Table component to handle
-          status: {
-            isActive: item.closed_status !== 0,
-            text: item.closed_status === 0 ? "in-active" : "active"
-          },
-          action: "action",
-          id: item.id
-        });
-      }
-    });
-  }
-
-  const hideModal = () => {
-    setMode(false);
-  };
-
-  const handleView = (row) => {
-    const recordId = row.deviceid;
-    console.log(recordId)
-    dispatch(getDetails({token, device_id: recordId}))
-    // setMode(true); 
-    setEmer(false)
-  };
-
   useEffect(() => {
-    if (detailsItem && Object.keys(detailsItem).length > 0) {
-      setDetails(detailsItem);
-    }
-  }, [detailsItem]);
+    if (!token) return;
 
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        (error) => {
-          console.error("Error fetching location:", error);
-          
-          // Handle different error cases
-          if (error.code === 1) { // Permission denied
-            // Set default location or use the device's location from API
-            if (details && details.lat && details.log) {
-              setCurrentLocation({
-                lat: parseFloat(details.lat),
-                lng: parseFloat(details.log)
-              });
-            } else {
-              // Set to a default location (e.g., center of your operational area)
-              setCurrentLocation({ lat: '', lng: '' }); // Default to Lagos, Nigeria
-            }
-            
-            // Optionally show a friendly message to the user
-            Swal.fire({
-              icon: 'info',
-              title: 'Location Access Denied',
-              text: 'We need access to your location to show you nearby information. You can enable this in your browser settings.',
-              confirmButtonColor: '#2E3192'
-            });
-          } else if (error.code === 2) { // Position unavailable
-            // Handle position unavailable
-            Swal.fire({
-              icon: 'error',
-              title: 'Location Unavailable',
-              text: 'Your location information is currently unavailable.',
-              confirmButtonColor: '#2E3192'
-            });
-          } else if (error.code === 3) { // Timeout
-            // Handle timeout
-            Swal.fire({
-              icon: 'warning',
-              title: 'Location Request Timed Out',
-              text: 'Please try again later.',
-              confirmButtonColor: '#2E3192'
-            });
-          }
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 } 
-      );
-    } else {
-      console.error("Geolocation is not supported by this browser.");
-      Swal.fire({
-        icon: 'error',
-        title: 'Geolocation Not Supported',
-        text: 'Your browser does not support geolocation features.',
-        confirmButtonColor: '#2E3192'
-      });
-    }
-}, [details]);
-
-  const mapCenter = useMemo(() => {
-        if (currentLocation) {
-          return currentLocation;
-        }
-        
-        if (details?.devicedetails?.lat && details?.devicedetails?.log) {
-          const lat = parseFloat(details?.devicedetails?.lat);
-          const lng = parseFloat(details?.devicedetails?.log);
-          
-          if (!isNaN(lat) && !isNaN(lng)) {
-            return { lat, lng };
-          }
-        }
-        
-        return { lat: parseFloat(details?.devicedetails?.lat), lng: parseFloat(details?.devicedetails?.log) }; // Default
-  }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
-  
-  const markerPosition = useMemo(() => {
-    if (currentLocation) return currentLocation;
-    
-    if (details?.devicedetails?.lat && details?.devicedetails?.log) {
-      const lat = parseFloat(details.devicedetails.lat);
-      const lng = parseFloat(details.devicedetails.log);
-      
-      if (!isNaN(lat) && !isNaN(lng)) {
-        return { lat, lng };
+    const fetchData = async () => {
+      try {
+        await dispatch(dashboardData({ token, page: currentPage })).unwrap();
+      } catch (fetchError) {
+        console.error('Dashboard refresh failed:', fetchError);
       }
-    }
-    
-    return null;
-  }, [currentLocation, details?.devicedetails?.lat, details?.devicedetails?.log]);
-
-  // get map center
-  const getMapCenter = () => {
-  if (currentLocation) return currentLocation;
-  
-  const lat = localStorage.getItem('lat');
-  const lng = localStorage.getItem('log');
-  
-  if (lat && lng) {
-    return { 
-      lat: parseFloat(lat), 
-      lng: parseFloat(lng) 
     };
-  }
-  
-  // Default fallback
-  return { lat: 6.5244, lng: 3.3792 };
-};
 
-  const closeCase = async (cid) => {
-    console.log(cid)
+    fetchData();
+    const interval = setInterval(fetchData, 20000);
 
-    const formData = new FormData();
-    formData.append("accident_id", cid);
+    return () => clearInterval(interval);
+  }, [currentPage, dispatch, token]);
 
-    Swal.fire({
-      icon: "success",
-      title: "Validing Id!",
-      text: "Device is being closed...",
-      timer: 1500,
-      showConfirmButton: false,
-    });
+  const company = dataItem?.company || {};
+  const responseCards = dataItem?.cards || {};
+  const tableRows = useMemo(() => dataItem?.table?.rows || [], [dataItem]);
+  const tablePagination = dataItem?.table?.pagination || {};
+  const mapLocations = useMemo(
+    () => dataItem?.map?.locations || [],
+    [dataItem]
+  );
 
-    try {
-      Swal.fire({
-        title: "Closing Device...",
-        text: "Please wait while we process your request.",
-        allowOutsideClick: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        },
-      });
+  const latestIncident = useMemo(() => {
+    if (!tableRows.length) return null;
 
-      const response = await dispatch(closeDevice({token, formData})).unwrap();
+    return [...tableRows].sort((a, b) => parseDateTime(b) - parseDateTime(a))[0];
+  }, [tableRows]);
 
-      if (response.message === "case closed") {
-        Swal.fire({
-          icon: "success",
-          title: "Device Closed!",
-          text: `${response.message}`,
-        });
-
-        hideModal();
-      }
-      else {
-        Swal.fire({
-          icon: "info",
-          title: "Device status",
-          text: `${response.message}`,
-        });
-      }
-    } catch (error) {
-      let errorMessage = "Something went wrong";
-              
-      if (error && typeof error === "object") {
-          if (Array.isArray(error)) {
-              errorMessage = error.map(item => item.message).join(", ");
-          } else if (error.message) {
-              errorMessage = error.message;
-          } else if (error.response && error.response.data) {
-              errorMessage = Array.isArray(error.response.data) 
-                  ? error.response.data.map(item => item.message).join(", ") 
-                  : error.response.data.message || JSON.stringify(error.response.data);
-          }
-      }
-  
-      Swal.fire({
-        icon: "error",
-        title: "Error Occurred",
-        text: errorMessage,
-      });
-    }
-  }
-  
   useEffect(() => {
-    if (dataItem?.notifications && dataItem.notifications.length > 0) {
+    if (latestIncident) {
       setShowMainAlert(true);
     }
-  }, [dataItem?.notifications?.[dataItem?.notifications?.length - 1]?.id]);
+  }, [latestIncident?.id]);
 
-  console.log(details)
+  useEffect(() => {
+    if (!selectedIncident?.id) return;
 
-  return (
+    const updatedIncident = tableRows.find((row) => row.id === selectedIncident.id);
+    if (updatedIncident && updatedIncident !== selectedIncident) {
+      setSelectedIncident(updatedIncident);
+    }
+  }, [selectedIncident, tableRows]);
+
+  useEffect(() => {
+    const apiCurrentPage = Number(tablePagination?.current_page);
+
+    if (
+      Number.isFinite(apiCurrentPage) &&
+      apiCurrentPage > 0 &&
+      apiCurrentPage !== currentPage
+    ) {
+      setCurrentPage(apiCurrentPage);
+    }
+  }, [currentPage, tablePagination?.current_page]);
+
+  const carouselCards = useMemo(
+    () => [
+      {
+        key: 'total_emergencies',
+        title: responseCards?.total_emergencies?.title || 'Total Emergencies',
+        value: responseCards?.total_emergencies?.value ?? 0,
+        helperText: responseCards?.total_emergencies?.change?.text || '0 today',
+        chartData: buildCardChartData(responseCards?.total_emergencies),
+        chartColor: '#2E3192',
+        imageBase: Pad,
+        image: Com,
+      },
+      {
+        key: 'fatal_crash',
+        title: responseCards?.fatal_crash?.title || 'Fatal Crash',
+        value: responseCards?.fatal_crash?.value ?? 0,
+        helperText: responseCards?.fatal_crash?.change?.text || '0 today',
+        chartData: buildCardChartData(responseCards?.fatal_crash),
+        chartColor: '#FE5B65',
+        imageBase: Pink2,
+        image: Pink,
+      },
+      {
+        key: 'non_fatal_crash',
+        title: responseCards?.non_fatal_crash?.title || 'Non-Fatal Crash',
+        value: responseCards?.non_fatal_crash?.value ?? 0,
+        helperText: responseCards?.non_fatal_crash?.change?.text || '0 today',
+        chartData: buildCardChartData(responseCards?.non_fatal_crash),
+        chartColor: '#FE9431',
+        imageBase: Org2,
+        image: Org,
+      },
+      {
+        key: 'sos_requests',
+        title: responseCards?.sos_requests?.title || 'SOS Requests',
+        value: responseCards?.sos_requests?.value ?? 0,
+        helperText: responseCards?.sos_requests?.change?.text || '0 today',
+        chartData: buildCardChartData(responseCards?.sos_requests),
+        chartColor: '#15AC77',
+        imageBase: Act2,
+        image: Act,
+      },
+    ],
+    [responseCards]
+  );
+
+  const tableData = useMemo(
+    () =>
+      tableRows.map((row) => ({
+        ...row,
+        device_number: row.device_number || 'N/A',
+        emergency_id: row.emergency_id || 'N/A',
+        type: row.type || 'N/A',
+        severity: row.severity || 'N/A',
+        priority: row.priority || 'N/A',
+        assigned_phone: row.actions?.call_number || row.assigned_phone || 'N/A',
+        incident_status: row.incident_status || 'N/A',
+        actionIcons: [
+          row.actions?.call_number ? 'phone' : null,
+          row.actions?.can_view ? 'eye' : null,
+          row.actions?.directions_url || row.actions?.map_url ? 'map' : null,
+        ].filter(Boolean),
+        action: 'action',
+      })),
+    [tableRows]
+  );
+
+  const columns = useMemo(
+    () => [
+      { header: '', accessor: 'select', width: '56px' },
+      { header: 'DEVICE NUMBER', accessor: 'device_number' },
+      { header: 'EMERGENCY ID', accessor: 'emergency_id' },
+      { header: 'TYPE', accessor: 'type' },
+      { header: 'SEVERITY', accessor: 'severity' },
+      { header: 'PRIORITY', accessor: 'priority' },
+      { header: 'ASSIGNED PHONE', accessor: 'assigned_phone' },
+      { header: 'STATUS', accessor: 'incident_status' },
+      { header: 'ACTION', accessor: 'action' },
+    ],
+    []
+  );
+
+  const dashboardMapCenter = useMemo(() => {
+    const center = dataItem?.map?.center;
+    const parsedCenter = toLatLng(center?.lat, center?.lng);
+
+    if (parsedCenter) {
+      return parsedCenter;
+    }
+
+    const firstLocation = mapLocations[0];
+    return toLatLng(firstLocation?.latitude, firstLocation?.longitude) || defaultCenter;
+  }, [dataItem, mapLocations]);
+
+  const selectedLocation = useMemo(() => {
+    if (!selectedIncident) return null;
+
+    return (
+      mapLocations.find(
+        (location) =>
+          location.incident_id === selectedIncident.id ||
+          location.emergency_id === selectedIncident.emergency_id
+      ) || null
+    );
+  }, [mapLocations, selectedIncident]);
+
+  const selectedMapCenter = useMemo(() => {
+    return (
+      toLatLng(selectedLocation?.latitude, selectedLocation?.longitude) ||
+      toLatLng(selectedIncident?.latitude, selectedIncident?.longitude) ||
+      dashboardMapCenter
+    );
+  }, [dashboardMapCenter, selectedIncident, selectedLocation]);
+
+  const dashboardMarkers = useMemo(
+    () =>
+      mapLocations
+        .map((location) => ({
+          key: location.incident_id || location.emergency_id,
+          position: toLatLng(location.latitude, location.longitude),
+        }))
+        .filter((location) => location.position),
+    [mapLocations]
+  );
+
+  const handleView = (row) => {
+    setSelectedIncident(row);
+    setShowMainAlert(false);
+
+    if (token && row?.id) {
+      dispatch(emergencyDetails({ token, id: row.id }));
+    }
+  };
+
+  const dashboardMapUrl =
+    dataItem?.map?.blade_view_url || dataItem?.map?.map_page_url || '';
+
+  const openExternalUrl = (url) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCall = (row) => {
+    const callNumber = row?.actions?.call_number || row?.assigned_phone;
+
+    if (callNumber) {
+      window.location.href = `tel:${callNumber}`;
+    }
+  };
+
+  const handleMap = (row) => {
+    openExternalUrl(row?.actions?.directions_url || row?.actions?.map_url);
+  };
+
+  const handleCloseCase = async (incident) => {
+    if (!token || !incident?.id) {
+      return;
+    }
+
+    const isIncidentClosed =
+      incident.closed_status === 1 ||
+      incident.closed_status === '1' ||
+      String(incident.incident_status || '').toLowerCase() === 'closed';
+    const canClose =
+      incident.actions?.can_close === true ||
+      incident.actions?.can_close === 1 ||
+      incident.actions?.can_close === '1';
+
+    if (isIncidentClosed || !canClose) {
+      return;
+    }
+
+    try {
+      setClosingCaseId(incident.id);
+      await dispatch(closeEmergencyCase({ token, id: incident.id })).unwrap();
+      await Promise.all([
+        dispatch(emergencyDetails({ token, id: incident.id })).unwrap(),
+        dispatch(dashboardData({ token, page: currentPage })).unwrap(),
+      ]);
+    } catch (closeError) {
+      console.error('Close case failed:', closeError);
+    } finally {
+      setClosingCaseId(null);
+    }
+  };
+
+  const handlePageChange = (page) => {
+    const lastPage = Number(tablePagination?.last_page) || 1;
+
+    if (page < 1 || page > lastPage || page === currentPage) {
+      return;
+    }
+
+    setCurrentPage(page);
+
+    if (emergenciesTableRef.current) {
+      emergenciesTableRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      });
+    }
+  };
+
+  const renderDashboard = () => (
     <>
-
-    {emer ? (
-      <>
-        <div className="d-block d-lg-flex justify-content-between p-3 mt-3">
+      <div className="d-block d-lg-flex justify-content-between p-3 mt-3">
         <div>
-          <h3 style={{color: '#14181F'}}>Welcome {dataItem?.details?.name || 'User'}</h3>
-          <p style={{color: '#707A8F'}}>Provides an overview of key metrics</p>
+          <h5 style={{ color: '#14181F' }}>
+            Welcome {company?.company_name || 'Responder'}
+          </h5>
+          <p style={{ color: '#707A8F' }}>Provides an overview of key metrics</p>
         </div>
       </div>
-      
-      
 
-      {dataItem?.notifications && dataItem.notifications.length > 0 && showMainAlert && (
-        <div className="notifications-container">
-          {(() => {
-            // Sort notifications by date and time (most recent first)
-            const sortedNotifications = [...dataItem.notifications].sort((a, b) => {
-              // Parse date (handles formats like "2026-02-15" or "15-02-2026" or "02/15/2026")
-              const parseDateTime = (dateStr, timeStr) => {
-                if (!dateStr) return 0;
-                // Try to extract year from the date string
-                const parts = dateStr.split(/[-/]/);
-                let year, month, day;
-                
-                // Check if first part is year (YYYY-MM-DD)
-                if (parts[0] && parts[0].length === 4) {
-                  [year, month, day] = parts;
-                } else if (parts[2] && parts[2].length === 4) {
-                  // DD-MM-YYYY or MM/DD/YYYY format
-                  [day, month, year] = parts;
-                } else {
-                  // Fallback to default parsing
-                  return new Date(`${dateStr} ${timeStr || '00:00:00'}`).getTime() || 0;
-                }
-                
-                const time = timeStr || '00:00:00';
-                return new Date(`${year}-${month}-${day} ${time}`).getTime() || 0;
-              };
-              
-              const dateTimeA = parseDateTime(a.date, a.time);
-              const dateTimeB = parseDateTime(b.date, b.time);
-              return dateTimeB - dateTimeA; // Descending order (most recent first)
-            });
-            const lastNotification = sortedNotifications[0];
-            localStorage.setItem("lat", lastNotification.lat)
-            localStorage.setItem("log", lastNotification.log)
-            
-            return (
-              <div 
-                key={lastNotification.id || `${lastNotification.deviceid}_${lastNotification.date}_${lastNotification.time}`}
-                className={`alert-box d-block d-lg-flex justify-content-between p-3 mb-3 ${shouldVibrate ? 'vibrate-animation' : ''}`}
-                style={{
-                  border: "1px solid #FE5B65", 
-                  borderRadius: "12px",
-                  position: 'relative',
-                  animation: `slideIn 0.3s ease-out both`
-                }}
-              >
-                <div className='d-flex'>
-                  <div>
-                    <img src={Em} alt="" className='mx-3 my-3'/>
-                  </div>
-                  <div>
-                    <div className="d-block d-lg-flex">
-                      <p style={{color: "#FE5B65", fontWeight: "600", marginRight: "10px", marginBottom: "0"}}>Emergency Alert</p>
-                      <p style={{color: "#15AC77", fontSize: "14px", background: "#E8F7F1", padding: "5px", marginBottom: "0"}}>
-                        <FontAwesomeIcon icon={faPhone} className='mx-2'/>Device Number: {lastNotification.deviceid}
-                      </p>
-                    </div>
-                    <p style={{fontWeight: "600", marginBottom: "0"}}>{lastNotification.nature_of_request}</p>
-                    <div className="d-block d-lg-flex">
-                      <FontAwesomeIcon icon={faCrosshairs} style={{color: "#707A8F", marginRight: "5px", fontSize: "14px", marginTop: "4px"}}/>
-                      <small style={{color: "#707A8F", marginRight: "15px"}}>Location: {lastNotification.lat}, {lastNotification.log}</small>
-                      <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCalendar} /></small>
-                      <small style={{color: "#707A8F", marginRight: "15px"}}>Date/Time: {lastNotification.date} | {lastNotification.time}</small>
-                      <small style={{color: "#707A8F", marginRight: "5px"}}><FontAwesomeIcon icon={faCarCrash} /></small>
-                      <small style={{color: "#707A8F", marginRight: "5px"}}>Accident Type: {lastNotification.accident_type}</small>
-                    </div>
-                  </div>
-                </div>
-                <div className='mt-3'>
-                  <p style={{color: "#FE5B65", background: "#FFEFF0", padding: "7px"}}>
-                    <img src={War} alt='' /> Severity: {lastNotification.priority}
+      <CardCarousel cards={carouselCards} />
+
+      {latestIncident && showMainAlert && (
+        <div className="notifications-container mt-4">
+          <div
+            className="alert-box d-block d-lg-flex justify-content-between p-3 mb-3"
+            style={{
+              border: '1px solid #FE5B65',
+              borderRadius: '12px',
+              position: 'relative',
+            }}
+          >
+            <div className="d-flex">
+              <div>
+                <img src={Em} alt="" className="mx-3 my-3" />
+              </div>
+              <div>
+                <div className="d-block d-lg-flex">
+                  <p
+                    style={{
+                      color: '#FE5B65',
+                      fontWeight: '600',
+                      marginRight: '10px',
+                      marginBottom: '0',
+                    }}
+                  >
+                    Emergency Alert
+                  </p>
+                  <p
+                    style={{
+                      color: '#15AC77',
+                      fontSize: '14px',
+                      background: '#E8F7F1',
+                      padding: '5px',
+                      marginBottom: '0',
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faPhone} className="mx-2" />
+                    Device Number: {latestIncident.device_number}
                   </p>
                 </div>
-                {/* Close button */}
-                <button 
-                  onClick={() => setShowMainAlert(false)}
-                  style={{
-                    position: 'absolute',
-                    top: '10px',
-                    right: '10px',
-                    background: 'transparent',
-                    border: 'none',
-                    fontSize: '20px',
-                    color: '#FE5B65',
-                    cursor: 'pointer'
-                  }}
-                >
-                  &times;
-                </button>
+                <p style={{ fontWeight: '600', marginBottom: '0' }}>
+                  {latestIncident.nature_of_request || 'Accident detected'}
+                </p>
+                <div className="d-block d-lg-flex">
+                  <FontAwesomeIcon
+                    icon={faCrosshairs}
+                    style={{
+                      color: '#707A8F',
+                      marginRight: '5px',
+                      fontSize: '14px',
+                      marginTop: '4px',
+                    }}
+                  />
+                  <small style={{ color: '#707A8F', marginRight: '15px' }}>
+                    Location: {latestIncident.latitude || 'N/A'},{' '}
+                    {latestIncident.longitude || 'N/A'}
+                  </small>
+                  <small style={{ color: '#707A8F', marginRight: '5px' }}>
+                    <FontAwesomeIcon icon={faCalendar} />
+                  </small>
+                  <small style={{ color: '#707A8F', marginRight: '15px' }}>
+                    Date/Time: {formatDateTimeLabel(latestIncident)}
+                  </small>
+                  <small style={{ color: '#707A8F', marginRight: '5px' }}>
+                    <FontAwesomeIcon icon={faCarCrash} />
+                  </small>
+                  <small style={{ color: '#707A8F' }}>
+                    Type: {latestIncident.type || 'N/A'}
+                  </small>
+                </div>
               </div>
-            );
-          })()}
+            </div>
+            <div className="mt-3">
+              <p
+                style={{
+                  color: '#FE5B65',
+                  background: '#FFEFF0',
+                  padding: '7px',
+                }}
+              >
+                <img src={War} alt="" /> Severity: {latestIncident.severity || 'N/A'}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowMainAlert(false)}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '20px',
+                color: '#FE5B65',
+                cursor: 'pointer',
+              }}
+            >
+              &times;
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Card Carousel */}
-      <CardCarousel devices={dataItem} />
+      <div
+        className="map-section px-4 py-4 mt-5"
+        style={{
+          backgroundColor: '#fff',
+          border: '1px solid #d3d6dc',
+          borderRadius: '20px',
+        }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h5 className="mb-0">Emergency Map</h5>
+          <small style={{ color: '#707A8F' }}>
+            {dataItem?.map?.total_locations ?? dashboardMarkers.length} active
+            location{(dataItem?.map?.total_locations ?? dashboardMarkers.length) === 1 ? '' : 's'}
+          </small>
+        </div>
 
-      <div className="map-section px-4 py-4 mt-5" style={{backgroundColor: '#fff', border: '1px solid #d3d6dc', borderRadius: '20px'}}>
-        <h5>Device Location</h5>
-
-        <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
-          <GoogleMap
-            mapContainerStyle={containerStyle}
-            center={
-              currentLocation || 
-              (() => {
-                const lat = localStorage.getItem('lat');
-                const lng = localStorage.getItem('log');
-                return lat && lng 
-                  ? { lat: parseFloat(lat), lng: parseFloat(lng) } 
-                  : { lat: '', lng: '' }; // Default fallback
-              })()
-            }
-            zoom={10}
-          >
-            {currentLocation && <Marker position={currentLocation} />}
-            {!currentLocation && details && details.lat && details.log && 
-              <Marker 
-                position={{ lat: parseFloat(lat), lng: parseFloat(log) }} 
-                icon={{
-                  url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                }}
-              />
-            }
-          </GoogleMap>
-        </LoadScript>
-      </div>
-
-      <div ref={emergenciesTableRef} className="recent-section p-3">
-        <p>Recent Emergencies</p>
-        {!dataItem || !dataItem.records ? (
-          <div>No emergency data available</div>
-        ) : (
-          <Table 
-            columns={columns} 
-            data={dataItem.records} 
-            onView={handleView}
+        {dashboardMapUrl ? (
+          <iframe
+            src={dashboardMapUrl}
+            title="Emergency map"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            style={{
+              width: '100%',
+              height: containerStyle.height,
+              border: 0,
+              borderRadius: containerStyle.borderRadius,
+            }}
           />
+        ) : (
+          <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+            <GoogleMap
+              mapContainerStyle={containerStyle}
+              center={dashboardMapCenter}
+              zoom={Number(dataItem?.map?.zoom) || 10}
+            >
+              {dashboardMarkers.map((marker) => (
+                <Marker key={marker.key} position={marker.position} />
+              ))}
+            </GoogleMap>
+          </LoadScript>
         )}
       </div>
 
-      {mode && details && (
-        <div className="modal-overlay">
-          <div className="modal-content2">
-            <div className="head-mode">
-              <h6 style={{color: '#2E3192'}}>Emergency Details</h6>
-              <button className="modal-close" onClick={hideModal}>&times;</button>
+      <div ref={emergenciesTableRef} className="recent-section p-3">
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <p className="mb-0">All Connected Devices</p>
+          <small style={{ color: '#707A8F' }}>
+            {dataItem?.table?.pagination?.total ?? tableData.length} total incident
+            {(dataItem?.table?.pagination?.total ?? tableData.length) === 1 ? '' : 's'}
+          </small>
+        </div>
+
+        {loading && !tableData.length ? (
+          <div>Loading emergency data...</div>
+        ) : error ? (
+          <div>Error loading emergency data.</div>
+        ) : (
+          <>
+            <Table
+              columns={columns}
+              data={tableData}
+              onCall={handleCall}
+              onMap={handleMap}
+              onView={handleView}
+              onRowClick={handleView}
+              actionIcons={[]}
+            />
+            <div className="mt-3">
+              <Pagination
+                currentPage={Number(tablePagination?.current_page) || currentPage}
+                lastPage={Number(tablePagination?.last_page) || 1}
+                onPageChange={handlePageChange}
+                totalItems={Number(tablePagination?.total) || tableData.length}
+                perPage={Number(tablePagination?.per_page) || tableData.length || 1}
+              />
             </div>
-            <div className="modal-body">
-              <div className="d-flex justify-content-between">
-                <img src={Logo2} alt="" />
-              </div>
-              <hr />
+          </>
+        )}
+      </div>
+    </>
+  );
 
-              <p style={{color: '#2E3192'}}>Device Information</p>
-              <div className="">
-                <div className='w-100 px-lg-3 px-0 cta'>
-                  <div className="d-flex justify-content-between">
-                    <p>Device ID: </p>
-                    <p>{details.devicedetails?.device_id || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Device IME: </p>
-                    <p>{details.devicedetails?.device_ime || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Device Number: </p>
-                    <p>{details.devicedetails?.device_number || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Status: </p>
-                    <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Longitute: </p>
-                    <p>{details.devicedetails?.log || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Latitude: </p>
-                    <p>{details.devicedetails?.lat || 'N/A'}</p>
-                  </div>
-                </div>
-                
-                <div className='w-100'>
-                  
-                  <div className="d-flex justify-content-between">
-                    <p>Owner Name: </p>
-                    <p>{details.devicedetails?.owner_name}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Owner Email: </p>
-                    <p>{details.devicedetails?.owner_email}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Owner Phone Number: </p>
-                    <p>{details.devicedetails?.owner_phone_number}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Owner Address: </p>
-                    <p>{details.devicedetails?.owner_address}</p>
-                  </div>
-                </div>
-              </div>
+  const renderEmergencyDetails = () => {
+    if (!selectedIncident) return null;
 
-              <hr />
-              <p style={{color: '#2E3192'}}>Vehicle Information</p>
-              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
-                <div className='w-100 px-lg-3 px-0 cta'>
-                  <div className="d-flex justify-content-between">
-                    <p>Vehicle Name: </p>
-                    <p>{details.devicedetails?.vehicle_name || "N/A"}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Vehicle Year: </p>
-                    <p>{details.devicedetails?.vehicle_model_year || "N/A"}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Vehicle Plate Number: </p>
-                    <p>{details.devicedetails?.vehicle_plate_number || "N/A"}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Vehicle Chases Number </p>
-                    <p>{details.devicedetails?.vehicle_chasses_number || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
-              <hr />
-              <p style={{color: '#2E3192'}}>Accident Detected</p>
-              <div className="d-block d-lg-flex justify-content-between" style={{gap: '20px'}}>
-                <div className='w-100 px-lg-3 px-0 cta'>
-                  <div className="d-flex justify-content-between">
-                    <p>Latitude: </p>
-                    <p>{details.accident_detected?.lat || "N/A"}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Longitude: </p>
-                    <p>{details.accident_detected?.log || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Accident Type: </p>
-                    <p>{details.accident_detected?.accident_type || 'N/A'}</p>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p>Nature Of Request </p>
-                    <p>{details.accident_detected?.nature_of_request || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-              <hr />
-              <div className="map-section px-3 py-2 mt-5" style={{background: "#fff"}}>
-                <p>Device Location</p>
-                  <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
-                  <GoogleMap
-                      mapContainerStyle={containerStyle}
-                      center={mapCenter}
-                      zoom={10}
-                    >
-                      {markerPosition && (
-                        <Marker 
-                          position={markerPosition}
-                          icon={!currentLocation ? {
-                            url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                          } : undefined}
-                        />
-                      )}
-                    </GoogleMap>
-                  </LoadScript>
-              </div>
-              <hr />
-              <p style={{color: '#2E3192'}}>Accident History</p>
-              <div className="table-content">
-                <div className="table-container">
-                  <table className="my-table">
-                    <thead>
-                      <tr>
-                        <th>Emergency ID</th>
-                        <th>Date/Time</th>
-                        <th>Type</th>
-                        <th>Severity</th>
-                        <th>Status</th>
-                        <th>close</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {
-                        details?.accident_history && details.accident_history.length > 0 ? (
-                          details.accident_history.map((item) => (
-                            <tr key={item.id}>
-                              <td>{item.deviceid}</td>
-                              <td>{item.date}{item.time}</td>
-                              <td>{item.accident_type}</td>
-                              <td>{item.nature_of_request}</td>
-                              <td>{item.priority}</td>
-                              <td><button className="btn btn-sm btn-primary" onClick={() => closeCase(item.id)}>Close</button></td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="7"><p className='text-center'>No History available</p></td>
-                          </tr>
-                        )
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-          </div>
-          </div>
-        </div>
-      )}
-      </>
-      ) : (
+    const emergencyIncident =
+      emergency?.incident?.id === selectedIncident.id ? emergency.incident : null;
+    const rawIncident =
+      emergency?.incident?.id === selectedIncident.id ? emergency.raw || {} : {};
+    const detailIncident = emergencyIncident || selectedIncident;
+    const callNumber =
+      detailIncident.actions?.call_number || detailIncident.assigned_phone;
+    const selectedIncidentEmbedMapUrl = buildGoogleEmbedMapUrl(
+      detailIncident.latitude,
+      detailIncident.longitude
+    );
+    const closedStatusValue =
+      rawIncident.closed_status ?? detailIncident.closed_status;
+    const closedStatusLabel =
+      closedStatusValue === 1 || closedStatusValue === '1'
+        ? 'Closed'
+        : closedStatusValue === 0 || closedStatusValue === '0'
+          ? 'Open'
+          : 'N/A';
+    const severityStyle =
+      severityStyles[detailIncident.severity] || severityStyles['Non-Fatal'];
+    const companyStatus = String(company?.status || 'N/A');
+    const isCompanyActive = companyStatus.toLowerCase() === 'active';
+    const detailIsLoading = emergencyLoading && !emergencyIncident;
+    const detailHasError = emergencyError && !emergencyIncident;
+    const isIncidentClosed =
+      closedStatusValue === 1 ||
+      closedStatusValue === '1' ||
+      String(detailIncident.incident_status || '').toLowerCase() === 'closed';
+    const canClose =
+      detailIncident.actions?.can_close === true ||
+      detailIncident.actions?.can_close === 1 ||
+      detailIncident.actions?.can_close === '1';
+    const isCloseDisabled = isIncidentClosed || !canClose;
+    const isClosingCase = closingCaseId === detailIncident.id;
+    const closeCaseLabel = isIncidentClosed ? 'Closed' : 'Close Case';
+
+    return (
       <>
-        <div className="mt-3">
-          <button className='p-3 d-btn mx-3' onClick={() => setEmer(true) }>Back to dashboard</button>
-
-          <h4 className='mt-5 p-3'>Emergency: {details.accident_detected?.deviceid}</h4>
+        <div className="mt-3 d-block d-lg-flex justify-content-between align-items-center px-3">
+          <button className="p-3 d-btn mb-3" onClick={() => setSelectedIncident(null)}>
+            Back to dashboard
+          </button>
+          <div className="text-right">
+            <h4 className="mb-1">Emergency: {detailIncident.emergency_id}</h4>
+            <small style={{ color: '#707A8F' }}>
+              {formatDateTimeLabel(detailIncident)}
+            </small>
+          </div>
         </div>
 
-        <div className="row">
-          <div className="col-sm-12 col-md-12 col-lg-8">
-            <div className="jumbotron" style={{backgroundColor: '#fff', border: '2px solid #d3d6dc', borderRadius: '20px'}}>
-              <div className="d-block d-lg-flex justify-content-between mb-5">
-                <div className="log">
-                  <img src={Logo2} alt="" />
+        <div className="row mt-4">
+          <div className="col-sm-12 col-md-12 col-lg-9">
+            <div
+              className="jumbotron"
+              style={{
+                backgroundColor: '#fff',
+                border: '2px solid #d3d6dc',
+                borderRadius: '20px',
+              }}
+            >
+              {detailIsLoading ? (
+                <div className="py-5 text-center">
+                  <div
+                    className="spinner-border text-primary mb-3"
+                    role="status"
+                  >
+                    <span className="sr-only"></span>
+                  </div>
+                  <h5 style={{ color: '#14181F' }}>Loading emergency details...</h5>
+                  <p style={{ color: '#707A8F' }} className="mb-0">
+                    Please wait while the incident page is being prepared.
+                  </p>
                 </div>
-                <div className="overview">
-                  <h4>Emergency Overview</h4>
-                  <div className="d-flex justify-content-between">
-                    <p style={{color: '#707A8F'}}>Emergency ID: </p>
-                    <small className="d-block">{details.accident_detected?.deviceid}</small>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p style={{color: '#707A8F'}}>Emergency Date</p>
-                    <small className="d-block">{details.accident_detected?.date}</small>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p style={{color: '#707A8F'}}>Emergency Time</p>
-                    <small className="d-block">{details.accident_detected?.time}</small>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p style={{color: '#707A8F'}}>Type</p>
-                    <small className="d-block">{details.accident_detected?.accident_type}</small>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p style={{color: '#707A8F'}}>Severity</p>
-                    <small className="d-block">{details.accident_detected?.priority}</small>
-                  </div>
-                  <div className="d-flex justify-content-between">
-                    <p style={{color: '#707A8F'}}>Status</p>
-                    <p className={details.devicedetails?.status}>{details.devicedetails?.status}</p>
-                  </div>
+              ) : detailHasError ? (
+                <div className="py-5 text-center">
+                  <h5 style={{ color: '#14181F' }}>Unable to load emergency details</h5>
+                  <p style={{ color: '#707A8F' }}>
+                    {typeof emergencyError === 'string'
+                      ? emergencyError
+                      : emergencyError?.message || 'Something went wrong.'}
+                  </p>
+                  <button
+                    className="p-3 d-btn"
+                    onClick={() =>
+                      token &&
+                      selectedIncident?.id &&
+                      dispatch(
+                        emergencyDetails({ token, id: selectedIncident.id })
+                      )
+                    }
+                  >
+                    Retry
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <>
+                  <div className="d-block d-lg-flex justify-content-between mb-5">
+                    <div className="log">
+                      <img src={Logo2} alt="" />
+                    </div>
+                    <div className="overview">
+                      <p>Emergency Overview</p>
+                      <div className="d-flex justify-content-between">
+                        <p style={{ color: '#707A8F' }}>Emergency ID:</p>
+                        <small className="d-block">{detailIncident.emergency_id}</small>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <p style={{ color: '#707A8F' }}>Device Number:</p>
+                        <small className="d-block">{detailIncident.device_number}</small>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <p style={{ color: '#707A8F' }}>Type:</p>
+                        <small className="d-block">{detailIncident.type}</small>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <p style={{ color: '#707A8F' }}>Severity:</p>
+                        <small className="d-block">{detailIncident.severity}</small>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <p style={{ color: '#707A8F' }}>Priority:</p>
+                        <small className="d-block">{detailIncident.priority}</small>
+                      </div>
+                      <div className="d-flex justify-content-between">
+                        <p style={{ color: '#707A8F' }}>Incident Status:</p>
+                        <small className="d-block">{detailIncident.incident_status}</small>
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="row">
-                <div className="col-sm-12 col-md-12 col-lg-6">
-                  <h4>Emergency Details</h4>
-                  <hr />
-                  <h4><b>Device Info</b></h4>
-                  <h6 style={{color: '#707A8F'}}>Device ID: {details.devicedetails?.device_id || 'N/A'}</h6>
-                  <h6 style={{color: '#707A8F'}}>Device Number: {details.devicedetails?.device_number || 'N/A'}</h6>
-                  <h6 style={{color: '#707A8F'}}>Device IMEI: {details.devicedetails?.device_ime || 'N/A'}</h6>
+                  <div className="row">
+                    <div className="col-sm-12 col-md-12 col-lg-6">
+                      <p>Assignment Details</p>
+                      <hr />
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                         Phone: <span className='stx ml-2'>{callNumber || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Assignment Source:<span className='stx ml-2'>{detailIncident.assignment_source || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Assigned At:<span className='stx ml-2'>{detailIncident.assigned_at || rawIncident.created_at || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Distance: <span className='stx ml-2'>{detailIncident.assignment_distance_km || '0.00'} km</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Request Accepted: <span className='stx ml-2'>{detailIncident.request_accepted ? 'Yes' : 'No'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Last Call Status: <span className='stx ml-2'>{detailIncident.last_call_status || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Nature of Request:{' '}
+                        <span className='stx ml-2'>{detailIncident.nature_of_request || 'Accident detected'}</span>
+                      </h6>
+                    </div>
 
-                  <h4 className="mt-5">Emergency Timeline</h4>
-                  <h6 style={{color: '#707A8F'}}>14:30: Emergency detected</h6>
-                  <h6 style={{color: '#707A8F'}}>14:31: SOS button pressed</h6>
-                  <h6 style={{color: '#707A8F'}}>14:32: Alert sent to server</h6>
-                  <h6 style={{color: '#707A8F'}}>14:33: Device called by Agent</h6>
-                </div>
-                <div className="col-sm-12 col-md-12 col-lg-6">
-                  <h4>Owner's Information</h4>
-                  <hr />
-                  <h4><b>Owner Info</b></h4>
-                  <h6 style={{color: '#707A8F'}}>Full Name: {details.devicedetails?.owner_name}</h6>
-                  <h6 style={{color: '#707A8F'}}>Phone Number: {details.devicedetails?.owner_phone_number}</h6>
-                  <h6 style={{color: '#707A8F'}}>Email Address: {details.devicedetails?.owner_email}</h6>
-                  <h6 style={{color: '#707A8F'}}>Contact Address: {details.devicedetails?.owner_address}</h6>
+                    <div className="col-sm-12 col-md-12 col-lg-6">
+                      <p>Responder Company</p>
+                      <hr />
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Company: <span className='stx ml-2'>{company?.company_name || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Email: <span className='stx ml-2'>{company?.email || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Phone: <span className='stx ml-2'>{company?.phone || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Address: <span className='stx ml-2'>{company?.address || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Status:{' '}
+                        <span
+                          className={`ml-2 ${isCompanyActive ? 'status-indicator active' : 'status-indicator'}`}
+                        >
+                          {isCompanyActive ? (
+                            <span className="status-signal" aria-hidden="true"></span>
+                          ) : null}
+                          <span className='stx'>{companyStatus}</span>
+                        </span>
+                      </h6>
+                    </div>
+                  </div>
 
-
-                  <h4 className="mt-5">Vehicle Info</h4>
-                  <h6 style={{color: '#707A8F'}}>Vehicle Name: {details.devicedetails?.vehicle_name || "N/A"}</h6>
-                  <h6 style={{color: '#707A8F'}}>Type/Model: {details.devicedetails?.vehicle_model_year || "N/A"}</h6>
-                  <h6 style={{color: '#707A8F'}}>Plate Number: {details.devicedetails?.vehicle_plate_number || "N/A"}</h6>
-                  <h6 style={{color: '#707A8F'}}>Vehicle Identification Number (VIN): {details.devicedetails?.vehicle_chasses_number || "N/A"}</h6>
-                </div>
-              </div>
-
-              <div style={styles.impactSection} className='mt-5'>
-              <div style={styles.sectionHeader}>
-                <h2 style={styles.sectionTitle}>Impacts on Vehicle</h2>
-              </div>
-              
-              <div style={styles.impactContainer}>
-                <div style={styles.impactHeader}>
-                  <span style={styles.headerText}>Area of Impact</span>
-                  <span style={styles.headerText}>Level of Impact</span>
-                </div>
-                
-                <div style={styles.impactList}>
-                  {impactData.map((impact, index) => (
-                    <div 
-                      key={impact.id || index}
-                      style={{
-                        ...styles.impactItem,
-                        ...(hoveredItem === index ? styles.impactItemHover : {})
-                      }}
-                      onMouseEnter={() => setHoveredItem(index)}
-                      onMouseLeave={() => setHoveredItem(null)}
-                    >
-                      <span style={styles.areaName}>{impact.area}</span>
-                      <span 
+                  <div
+                    className="my-5 p-4"
+                    style={{ background: '#F8FAFC', borderRadius: '12px' }}
+                  >
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div>
+                        <h5 className="mb-1">Location Snapshot</h5>
+                        <small style={{ color: '#707A8F' }}>
+                          Lat: {detailIncident.latitude || rawIncident.lat || 'N/A'} | Lng:{' '}
+                          {detailIncident.longitude || rawIncident.log || 'N/A'}
+                        </small>
+                      </div>
+                      <span
                         style={{
-                          ...styles.impactLevel,
-                          ...getLevelColor(impact.level),
-                          ...(hoveredItem === index ? styles.impactLevelHover : {})
+                          ...severityStyle,
+                          padding: '8px 14px',
+                          borderRadius: '999px',
+                          fontWeight: '600',
                         }}
                       >
-                        {impact.level}
+                        {detailIncident.severity || 'N/A'}
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-              </div>
+                  </div>
 
-              <div className="progress-section p-4" style={{background: '#2E3192', borderRadius: '10px'}}>
-                <div className="d-flex justify-content-between">
-                  <div className="d-flex">
-                    <img src={Ab} alt="" />
-                    <small className="d-block text-light ml-3">Emergency Location</small>
-                  </div>
-                  <div>
-                    <small className="d-block text-light">En Route (ETA: 20 minutes)</small>
-                  </div>
-                </div>
+                  <div className="row mt-4">
+                    <div className="col-sm-12 col-md-12 col-lg-6">
+                      <p>Incident Record</p>
+                      <hr />
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Device ID: <span className='stx ml-2'>{rawIncident.deviceid || detailIncident.device_number || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Raw Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Created At: <span className='stx ml-2'>{rawIncident.created_at || detailIncident.assigned_at || 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Closed Status: <span className='stx ml-2'>{closedStatusLabel}</span>
+                      </h6>
+                    </div>
 
-                <div className="pl-5">
-                  <small className="d-block text-light">Distance: 3.5km</small>
-                  <div className="progress" style={{height: '5px'}}>
-                    <div className="progress-bar" role="progressbar" style={{width: '5%'}} aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
+                    <div className="col-sm-12 col-md-12 col-lg-6">
+                      <p>Routing Metadata</p>
+                      <hr />
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Responder Company ID: <span>{detailIncident.responder_company_id ?? rawIncident.responder_company_id ?? 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Responder User ID: <span className='stx ml-2'>{detailIncident.responder_user_id ?? rawIncident.responder_user_id ?? 'N/A'}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Assignment Attempts: <span className='stx ml-2'>{detailIncident.assignment_attempts ?? rawIncident.assignment_attempts ?? 0}</span>
+                      </h6>
+                      <h6 style={{ color: '#707A8F' }} className='ad'>
+                        Raw Incident ID: <span className='stx ml-2'>{rawIncident.id ?? detailIncident.id ?? 'N/A'}</span>
+                      </h6>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="mt-2">
-                <LoadScript googleMapsApiKey="AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY">
-                <GoogleMap
-                    mapContainerStyle={containerStyle}
-                    center={mapCenter}
-                    zoom={10}
-                  >
-                    {markerPosition && (
-                      <Marker 
-                        position={markerPosition}
-                        icon={!currentLocation ? {
-                          url: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                        } : undefined}
+
+                  <div className="mt-4">
+                    {selectedIncidentEmbedMapUrl ? (
+                      <iframe
+                        src={selectedIncidentEmbedMapUrl}
+                        title={`Emergency map for ${detailIncident.emergency_id}`}
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        style={{
+                          width: '100%',
+                          height: containerStyle.height,
+                          border: 0,
+                          borderRadius: containerStyle.borderRadius,
+                        }}
                       />
+                    ) : (
+                      <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+                        <GoogleMap
+                          mapContainerStyle={containerStyle}
+                          center={selectedMapCenter}
+                          zoom={12}
+                        >
+                          <Marker position={selectedMapCenter} />
+                        </GoogleMap>
+                      </LoadScript>
                     )}
-                  </GoogleMap>
-                </LoadScript>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-          <div className="col-sm-12 col-md-12 col-lg-4">
-            <div className="p-3 text-center" style={{backgroundColor: '#fff', border: '2px solid #d3d6dc', borderRadius: '20px'}}>
-              <button className='sh-btn mb-2'><FontAwesomeIcon icon={faPaperPlane} className='mr-2'/>Share Details</button>
-              <button className='sh-btn mb-2'><FontAwesomeIcon icon={faDownload} className='mr-2'/>Export Emergency</button>
-              <button className='sh-btn mb-2'><FontAwesomeIcon icon={faPrint} className='mr-2'/>Update Status</button>
-              <button className='sh-btn'><FontAwesomeIcon icon={faPen} className='mr-2'/>Add Notes</button>
 
+          <div className="col-sm-12 col-md-12 col-lg-3">
+            <div
+              className="p-3 text-center my-4 my-lg-0"
+              style={{
+                backgroundColor: '#fff',
+                border: '2px solid #d3d6dc',
+                borderRadius: '20px',
+              }}
+            >
+              <button
+                className="sh-btn mb-2"
+                onClick={() =>
+                  openExternalUrl(detailIncident.actions?.directions_url)
+                }
+              >
+                <FontAwesomeIcon icon={faLocationArrow} className="mr-2" />
+                Open Directions
+              </button>
+
+              <button
+                className="sh-btn mb-2"
+                onClick={() => openExternalUrl(detailIncident.actions?.map_url)}
+              >
+                <FontAwesomeIcon icon={faMapLocationDot} className="mr-2" />
+                Open Map
+              </button>
+
+              <button
+                className="sh-btn"
+                onClick={() => {
+                  if (callNumber) {
+                    window.location.href = `tel:${callNumber}`;
+                  }
+                }}
+              >
+                <span className="status-signal mr-2" aria-hidden="true"></span>
+                <FontAwesomeIcon icon={faPhoneVolume} className="mr-2" />
+                Call Responder
+              </button>
+
+              <button
+                className="sh-btn mt-2 cl-btn"
+                disabled={isCloseDisabled || isClosingCase}
+                onClick={() => handleCloseCase(detailIncident)}
+              >
+                {isClosingCase ? 'Closing...' : closeCaseLabel}
+              </button>
             </div>
           </div>
         </div>
       </>
-      )}
-      
+    );
+  };
+
+  return (
+    <>
+      {selectedIncident ? renderEmergencyDetails() : renderDashboard()}
     </>
   );
 });
-
-const styles = {
-  // VEHICLE IMPACT SECTION STYLES
-  impactSection: {
-    width: '100%',
-    margin: '0 auto 40px',
-    background: 'white',
-    borderRadius: '12px',
-    overflow: 'hidden',
-    border: '2px solid #d3d6dc'
-  },
-  sectionHeader: {
-    padding: '30px 40px 20px',
-    borderBottom: '2px solid #e5e7eb'
-  },
-  sectionTitle: {
-    fontSize: '20px',
-    fontWeight: '600',
-    color: '#1f2937',
-    margin: '0'
-  },
-  impactContainer: {
-    padding: '30px 40px',
-    borderRadius: '12px',
-    margin: '40px',
-    border: '2px solid #d3d6dc'
-  },
-  impactHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '30px',
-    paddingBottom: '15px',
-    borderBottom: '1px solid #d1d5db'
-  },
-  headerText: {
-    fontSize: '16px',
-    fontWeight: '500',
-    color: '#6b7280',
-    letterSpacing: '0.5px'
-  },
-  impactList: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  impactItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '20px 0',
-    transition: 'all 0.2s ease',
-    cursor: 'pointer'
-  },
-  impactItemHover: {
-    // backgroundColor: '#f9fafb',
-    paddingLeft: '10px',
-    marginLeft: '-10px',
-    marginRight: '-10px',
-    borderRadius: '8px'
-  },
-  areaName: {
-    fontSize: '18px',
-    fontWeight: '500',
-    color: '#374151'
-  },
-  impactLevel: {
-    fontSize: '16px',
-    fontWeight: '600',
-    padding: '8px 16px',
-    borderRadius: '20px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    transition: 'all 0.2s ease'
-  },
-  impactLevelHover: {
-    transform: 'scale(1.05)',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
-  },
-};
 
 export default Card;

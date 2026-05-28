@@ -28,7 +28,6 @@ export default function RoleUserManagement() {
     email: "",
     role: "",
     privileges: {
-      manageDevices: false,
       viewCrashData: true,
       renewSubscriptions: false,
       apiWebhook: true,
@@ -130,7 +129,6 @@ export default function RoleUserManagement() {
 
             <h6 className="fw-semibold px-3 mb-3">Role Privileges</h6>
             {[
-              { name: "manageDevices", label: "Manage Devices" },
               { name: "viewCrashData", label: "View Crash Data" },
               { name: "renewSubscriptions", label: "Renew Subscriptions" },
               { name: "apiWebhook", label: "API & Webhook Management" },
@@ -209,7 +207,7 @@ export default function RoleUserManagement() {
               <strong className=''>
                 {actionType.toLowerCase()}
               </strong>{" "}
-              this Device? This action cannot be undone
+              this user? This action cannot be undone
             </p>
           
         </Modal.Body>
@@ -531,19 +529,6 @@ export default function RoleUserManagement() {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr >
-                      <td className="text-start">Manage Devices</td>
-                      <td className="text-center">
-                        <i className="bi bi-check-square-fill purple-check" ></i>
-                      </td>
-                       <td className="text-center">
-                        <i className="bi bi-check-square-fill purple-check" ></i>
-                      </td>
-                      <td className="text-center">❌</td>
-                       <td className="text-center">
-                        <i className="bi bi-check-square-fill purple-check" ></i>
-                      </td>
-                    </tr>
                     <tr>
                       <td className="text-start">View Crash Data</td>
                        <td className="text-center">
@@ -678,20 +663,6 @@ export default function RoleUserManagement() {
                 {/* Role Privileges */}
                 <div>
                   <h6 className="fw-semibold mb-3">Role Privileges</h6>
-
-                  <div className="form-check mb-2">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="manageDevices"
-                      name="manageDevices"
-                      checked={formData.privileges.manageDevices}
-                      onChange={handlePrivilegeChange}
-                    />
-                    <label className="form-check-label" htmlFor="manageDevices">
-                      Manage Devices
-                    </label>
-                  </div>
 
                   <div className="form-check mb-2">
                     <input

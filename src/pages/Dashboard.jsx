@@ -1,5 +1,4 @@
 import React, {useState, useEffect, useRef} from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { faCalendarAlt, faMessage, faBell } from "@fortawesome/free-regular-svg-icons"
@@ -9,20 +8,15 @@ import Sidebar from './Sidebar';
 import Card from './Card';
 import Emergencies from './Emergencies';
 import Reports from './Reports'
-import Device from './Device';
 import Notifications from './Notifications';
-import { dashboardData } from '../features/userSlice';
+import Responders from './Responders';
 import HelpCenter from './helpCenter';
 import Subscriptions from './Subscriptions';
-import ApiIntegrationsPage from './Api';
-import RoleUserManagement from './UserManagement';
+// import ApiIntegrationsPage from './Api';
+// import RoleUserManagement from './UserManagement';
 
 
 const Dashboard = () => {
-  const {loading, error, dataItem } = useSelector((state) => state.user);
-  const dispatch = useDispatch();
-  const tokenItem = localStorage.getItem("item");
-  const token = JSON.parse(tokenItem)
   const [activeMenu, setActiveMenu] = useState("Dashboard");
   const [selectedDate, setSelectedDate] = useState(null);
   const [showCalendar, setShowCalendar] = useState(false);
@@ -33,24 +27,27 @@ const Dashboard = () => {
     name: "Nigeria",
     flag: "https://flagcdn.com/w40/ng.png",
   });
+  const [dashboardRows, setDashboardRows] = useState([]);
+  const [pendingNotificationTarget, setPendingNotificationTarget] = useState(null);
 
   const cardRef = useRef(null);
 
+  const syncDashboardRows = () => {
+    try {
+      const storedDash = localStorage.getItem("dash");
 
-  useEffect(() => {
-    if (!token) return;
-  
-    // Initial call
-    dispatch(dashboardData({token}));
-  
-    // Set up interval for subsequent calls
-    const intervals = setInterval(() => {
-      dispatch(dashboardData({token}));
-    }, 20000);
-  
-    return () => clearInterval(intervals);
-  }, [dispatch, token])
+      if (!storedDash) {
+        setDashboardRows([]);
+        return;
+      }
 
+      const parsedDash = JSON.parse(storedDash);
+      setDashboardRows(Array.isArray(parsedDash?.table?.rows) ? parsedDash.table.rows : []);
+    } catch (error) {
+      console.error("Error reading dashboard notifications:", error);
+      setDashboardRows([]);
+    }
+  };
 
   useEffect(() => {
     fetch("https://restcountries.com/v3.1/all")
@@ -63,6 +60,18 @@ const Dashboard = () => {
         setCountries(countryList);
       })
       .catch((error) => console.error("Error fetching countries:", error));
+  }, []);
+
+  useEffect(() => {
+    syncDashboardRows();
+
+    const interval = setInterval(syncDashboardRows, 3000);
+    window.addEventListener("storage", syncDashboardRows);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", syncDashboardRows);
+    };
   }, []);
 
 
@@ -96,22 +105,24 @@ const Dashboard = () => {
     padding: "10px",
   };
 
-  const notifications = dataItem?.notifications?.map((item) => (
-    <div className="card-item" key={item.id}>
-      <div className="d-flex justify-content-between">
-        <p>Device ID:</p>
-        <p>{item.deviceid}</p>
-      </div>
-      <div className="d-flex justify-content-between">
-        <p style={{fontSize: '10px'}}>Accident Type:</p>
-        <small style={{fontSize: '10px'}}>{item.accident_type}</small>
-      </div>
-      <div className="d-flex justify-content-between">
-        <p style={{fontSize: '10px'}}>Nature of request:</p>
-        <small style={{fontSize: '10px'}}>{item.nature_of_request}</small>
-      </div>
-    </div>
-  ))
+  useEffect(() => {
+    if (activeMenu !== "Dashboard" || !pendingNotificationTarget || !cardRef.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      cardRef.current.scrollToTable();
+      cardRef.current.highlightRow(pendingNotificationTarget);
+      setPendingNotificationTarget(null);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [activeMenu, pendingNotificationTarget]);
+
+  const formatNotificationDate = (notification) =>
+    notification?.date_time ||
+    [notification?.date, notification?.time].filter(Boolean).join(" | ") ||
+    "N/A";
 
   const renderContent = () => {
     switch (activeMenu) {
@@ -119,20 +130,20 @@ const Dashboard = () => {
         return <Card ref={cardRef}/>;
       case "Emergencies":
         return <Emergencies />;
-      case "Device":
-        return <Device />;
       case "Reports & Analysis":
         return <Reports />; 
       case "Notifications" :
         return <Notifications /> 
+      case "Responders" :
+        return <Responders />
       case "Help Center" :
         return <HelpCenter />
       case "Subscription & Billing" :
         return <Subscriptions />
-      case "Role/User Management" :
-        return <RoleUserManagement />
-      case "API Access" :
-        return <ApiIntegrationsPage />
+      // case "Role/User Management" :
+      //   return <RoleUserManagement />
+      // case "API Access" :
+      //   return <ApiIntegrationsPage />
       default:
         return <Card ref={cardRef}/>;
     }
@@ -140,20 +151,18 @@ const Dashboard = () => {
 
   const handleNotificationClick = (notification) => {
     setShowNotifications(false);
-    
-    // Use the ref to Card component instead
-    if (cardRef.current) {
-      cardRef.current.scrollToTable();
-      cardRef.current.highlightRow(notification.deviceid);
-    }
+    setPendingNotificationTarget(
+      notification?.device_number || notification?.emergency_id || null
+    );
+    setActiveMenu("Dashboard");
   };
   
   return (
     <>
       <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
-      <div className="main-content p-3">
-        <header className='d-flex justify-content-between'>
-            <div className="search-container px-3">
+      <div className="main-content p-2 p-lg-3">
+        <header className='mt-3'>
+            {/* <div className="search-container px-3">
               <div className="position-relative">
                   <input 
                       type="text" 
@@ -172,8 +181,8 @@ const Dashboard = () => {
                       }}
                   />
               </div>
-            </div>
-            <div className='d-flex justify-content-between'>
+            </div> */}
+            <div className='d-flex justify-content-end'>
               <div ref={notificationRef} style={{ position: "relative", marginLeft: "15px" }}>
                 <FontAwesomeIcon
                   icon={faBell}
@@ -200,7 +209,7 @@ const Dashboard = () => {
                     border: "2px solid white",
                   }}
                 >
-                  {dataItem?.notifications?.length}
+                  {dashboardRows.length}
                 </span>
 
                 {showNotifications && (
@@ -223,8 +232,8 @@ const Dashboard = () => {
                       Notifications
                     </h6>
                     <ul style={{ listStyle: "none", padding: "0", margin: "0" }}>
-                      {dataItem?.notifications?.length > 0 ? (
-                        dataItem.notifications.map((notification, index) => (
+                      {dashboardRows.length > 0 ? (
+                        dashboardRows.map((notification, index) => (
                           <li
                             key={notification.id || index}
                             style={{
@@ -236,21 +245,21 @@ const Dashboard = () => {
                               transition: "background-color 0.2s ease",
                             }}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#f8f9fa";
+                              e.currentTarget.style.backgroundColor = "#f8f9fa";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "transparent";
+                              e.currentTarget.style.backgroundColor = "transparent";
                             }}
                             onClick={() => handleNotificationClick(notification)}
                           >
                             <div style={{ fontWeight: "bold", color: "#FE5B65" }}>
-                              Device: {notification.deviceid}
+                              {notification.emergency_id || notification.device_number}
                             </div>
                             <div style={{ fontSize: "12px", color: "#666" }}>
-                              {notification.nature_of_request}
+                              {notification.type || notification.nature_of_request || "No incident type"}
                             </div>
                             <div style={{ fontSize: "11px", color: "#999" }}>
-                              {notification.date} | {notification.time}
+                              {formatNotificationDate(notification)}
                             </div>
                           </li>
                         ))

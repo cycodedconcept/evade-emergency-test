@@ -1,7 +1,6 @@
 import React, {useState, useEffect, useMemo} from 'react'
 import { useDispatch, useSelector } from 'react-redux';
-import { dashboardData } from '../features/userSlice';
-import { getDetails } from '../features/deviceSlice';
+import { dashboardData } from '../features/dashboardSlice';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faSliders, faDownload, faChevronRight, faChevronLeft, faPaperPlane, faPen, faSquareCheck, faBullseye } from '@fortawesome/free-solid-svg-icons';
 import Table from "./reusables/Table"

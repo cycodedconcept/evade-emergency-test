@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Al, Al2, Ch, Ch2, De, De2, Help, Help2, La, La2, Logo2, Avatar, Bel, Bel2 } from '../assets';
+import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
+import { Al, Al2, Ch, Ch2, Help, Help2, La, La2, Logo2, Avatar, Bel, Bel2 } from '../assets';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faBars, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import { BsThreeDotsVertical, BsPencil, BsLock, BsBoxArrowRight } from "react-icons/bs";
-import { dashboardData } from '../features/userSlice';
 
 
 const Sidebar = ({ activeMenu, setActiveMenu }) => {
-    const dispatch = useDispatch();
-    const tokenItem = localStorage.getItem("item");
-    const token = tokenItem ? JSON.parse(tokenItem) : null;
     const {dataItem } = useSelector((state) => state.user);
     const [isOpen, setIsOpen] = useState(true);
     const [showPopup, setShowPopup] = useState(false);
@@ -18,11 +14,10 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
     const menuItems = [
         { name: 'Dashboard', icon: La, activeIcon: La2 },
         { name: 'Emergencies', icon: Al, activeIcon: Al2 },
-        { name: 'Device', icon: De, activeIcon: De2 },
         { name: 'Reports & Analysis', icon: Ch, activeIcon: Ch2 },
-        { name: 'Notifications', icon: Bel2, activeIcon: Bel },
-        { name: 'Subscription & Billing', icon: Bel2, activeIcon: Bel },
-        { name: 'Role/User Management', icon: Bel2, activeIcon: Bel}
+        { name: 'Responders', iconComponent: faUserShield, activeIconComponent: faUserShield },
+        // { name: 'Subscription & Billing', icon: Bel2, activeIcon: Bel },
+        // { name: 'Role/User Management', icon: Bel2, activeIcon: Bel}
         // { name: 'API Access', icon: Bel2, activeIcon: Bel}
     ];
 
@@ -32,28 +27,43 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
         setIsOpen(!isOpen);
     };
 
-    useEffect(() => {
-        if (token) {
-            dispatch(dashboardData({token}))
+    const handleMenuClick = (menuName) => {
+        setActiveMenu(menuName);
+
+        if (window.innerWidth < 768) {
+            setIsOpen(false);
         }
-    }, [dispatch, token])
+    };
 
     const MenuItem = ({ item }) => (
         <div
           className={`menu-item d-flex align-items-center px-3 py-2 mb-2 ${activeMenu === item.name ? "active" : ""}`}
-          onClick={() => setActiveMenu(item.name)}
+          onClick={() => handleMenuClick(item.name)}
           style={{
             cursor: "pointer",
             backgroundColor: activeMenu === item.name ? "#2E3192" : "transparent",
             borderLeft: activeMenu === item.name ? "4px solid #2E3192" : "4px solid transparent",
           }}
         >
-          <img src={activeMenu === item.name ? item.activeIcon : item.icon} alt={item.name} style={{ width: "16px", height: "16px", marginRight: '10px' }} />
+          {item.iconComponent ? (
+            <FontAwesomeIcon
+              icon={activeMenu === item.name ? item.activeIconComponent || item.iconComponent : item.iconComponent}
+              style={{
+                width: '16px',
+                height: '16px',
+                marginRight: '10px',
+                color: activeMenu === item.name ? '#fff' : '#707A8F',
+              }}
+            />
+          ) : (
+            <img src={activeMenu === item.name ? item.activeIcon : item.icon} alt={item.name} style={{ width: "16px", height: "16px", marginRight: '10px' }} />
+          )}
           <span style={{ color: activeMenu === item.name ? "#fff" : "#707A8F" }}>{item.name}</span>
         </div>
     );
 
     const handleLogOut = () => {
+        setShowPopup(false);
         localStorage.clear();
         
         window.location.href = '/';
@@ -93,7 +103,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
                         <img src={Logo2} alt=''/>
                     </div>
 
-                    <div className="search-container mb-4 px-3">
+                    {/* <div className="search-container mb-4 px-3">
                         <div className="position-relative">
                             <input 
                                 type="text" 
@@ -112,7 +122,7 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
                                 }}
                             />
                         </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 <div className={`sidebar ${isOpen ? "show" : "hide"}`} style={{ width: isOpen ? "250px" : "0" }}>
@@ -158,15 +168,15 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
                 zIndex: 2000
               }}
             >
-              <button className="popup-btn">
+              {/* <button className="popup-btn" type="button" onClick={handlePopupAction}>
                 <BsPencil style={{ marginRight: "8px" }} />
                 Edit Profile
               </button>
-              <button className="popup-btn">
+              <button className="popup-btn" type="button" onClick={handlePopupAction}>
                 <BsLock style={{ marginRight: "8px" }} />
                 Edit Password
-              </button>
-              <button className="popup-btn" style={{ color: "red" }} onClick={handleLogOut}>
+              </button> */}
+              <button className="popup-btn" type="button" style={{ color: "red" }} onClick={handleLogOut}>
                 <BsBoxArrowRight style={{ marginRight: "8px" }} />
                 Sign Out
               </button>

@@ -8,37 +8,19 @@ const initialState = {
     loading: false,
     error: null,
     message: {},
-    dataItem: [],
 }
 
-export const loginUser = createAsyncThunk(
-    'user/loginUser',
-    async ({ formData }, {rejectWithValue}) => {
+export const registerUser = createAsyncThunk(
+    'user/register/User',
+    async ({license_key, email, phone, password}, {rejectWithValue}) => {
         try {
-           const response = await axios.post(`${API_URL}/ads_apis/api/login`, formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
-           });
-           localStorage.setItem('item', JSON.stringify(response.data.message[0].token));
-           return response.data;
-        } catch (error) {
-            return rejectWithValue(error.response?.data || { message: 'Network error' });
-        }
-    }
-);
-
-export const dashboardData = createAsyncThunk(
-    'user/dashboardData',
-    async ({token}, {rejectWithValue}) => {
-        try {
-            const response = await axios.get(`${API_URL}/ads_apis/api/dashboard_api`, {
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                }
+            const response = await axios.post(`${API_URL}/responder/register`, {
+                license_key,
+                email,
+                phone,
+                password
             })
-            localStorage.setItem("dash", JSON.stringify(response.data.records))
+
             return response.data;
         } catch (error) {
             if (error.response && error.response.data) {
@@ -49,12 +31,50 @@ export const dashboardData = createAsyncThunk(
     }
 )
 
+export const loginUser = createAsyncThunk(
+    'user/loginUser',
+    async ({ license_key, email, password }, {rejectWithValue}) => {
+        try {
+           const response = await axios.post(`${API_URL}/responder/login`, {
+            license_key,
+            email,
+            password
+           }, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+           });
+           localStorage.setItem('item', response.data.token);
+           return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || { message: 'Network error' });
+        }
+    }
+);
+
+
+
 const loginSlice = createSlice({
     name: 'user',
     initialState,
     reducers: {},
     extraReducers: (builder) => {
         builder
+        .addCase(registerUser.pending, (state) => {
+            state.loading = true;
+            state.success = false;
+            state.error = null;
+        })
+        .addCase(registerUser.fulfilled, (state, action) => {
+            state.loading = false;
+            state.success = true;
+            state.message = action.payload;
+        })
+        .addCase(registerUser.rejected, (state, action) => {
+            state.loading = false;
+            state.success = false;
+            state.error = action.payload;
+        })
         .addCase(loginUser.pending, (state) => {
             state.loading = true;
             state.success = false;
@@ -66,21 +86,6 @@ const loginSlice = createSlice({
             state.message = action.payload
         })
         .addCase(loginUser.rejected, (state, action) => {
-            state.loading = false;
-            state.success = false;
-            state.error = action.payload;
-        })
-        .addCase(dashboardData.pending, (state) => {
-            state.loading = true;
-            state.success = false;
-            state.error = null;
-        })
-        .addCase(dashboardData.fulfilled, (state, action) => {
-            state.loading = false;
-            state.success = true;
-            state.dataItem = action.payload
-        })
-        .addCase(dashboardData.rejected, (state, action) => {
             state.loading = false;
             state.success = false;
             state.error = action.payload;
