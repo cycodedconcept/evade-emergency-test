@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Al, Al2, Ch, Ch2, Help, Help2, La, La2, Logo2, Avatar, Bel, Bel2 } from '../assets';
+import { Al, Al2, Ch, Ch2, Help, Help2, La, La2, Logo2, Bel, Bel2 } from '../assets';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faTimes, faUserShield } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes, faUser, faUserShield } from '@fortawesome/free-solid-svg-icons';
 import { BsThreeDotsVertical, BsPencil, BsLock, BsBoxArrowRight } from "react-icons/bs";
 
 
 const Sidebar = ({ activeMenu, setActiveMenu }) => {
-    const {dataItem } = useSelector((state) => state.user);
+    const { dataItem, message } = useSelector((state) => state.user);
     const [isOpen, setIsOpen] = useState(true);
     const [showPopup, setShowPopup] = useState(false);
+    const userDetails = dataItem?.details || message?.details || {};
     
     const menuItems = [
         { name: 'Dashboard', icon: La, activeIcon: La2 },
@@ -138,13 +139,23 @@ const Sidebar = ({ activeMenu, setActiveMenu }) => {
                         <div className="profile-img d-flex justify-content-between">
                             <div className='d-flex'>
                                 <div className='mr-2'>
-                                <img src={Avatar} alt="" />
+                                    <div
+                                        className="rounded-circle d-flex align-items-center justify-content-center"
+                                        style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            border: '1px solid #E8E8E9',
+                                            backgroundColor: '#F5F7FA'
+                                        }}
+                                    >
+                                        <FontAwesomeIcon icon={faUser} style={{ color: '#707A8F', fontSize: '16px' }} />
+                                    </div>
                                 </div>
-                                <div className="text-profile">
-                                    <p style={{fontSize: "11px", margin: '0'}}>{dataItem?.details?.name || 'User'}<br/> <span style={{fontSize: '9px', color: "707A8F"}}>premium</span></p>
+                                <div className="text-profile mt-3">
+                                    <p style={{fontSize: "11px", margin: '0'}} className='fw-bolder'>{userDetails?.name || 'Profile'}<br/></p>
                                 </div>
                             </div>
-                            <div style={{ position: "relative" }}>
+                            <div style={{ position: "relative" }} className='mt-2'>
                             <BsThreeDotsVertical 
                                 style={{ cursor: "pointer" }} 
                                 onClick={() => setShowPopup(!showPopup)} 
