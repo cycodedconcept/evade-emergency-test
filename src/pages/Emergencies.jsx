@@ -172,15 +172,18 @@ const Emergencies = () => {
 
   useEffect(() => {
     const apiCurrentPage = Number(tablePagination?.current_page);
+    const apiLastPage = Number(tablePagination?.last_page) || 1;
 
     if (
+      !loading &&
       Number.isFinite(apiCurrentPage) &&
       apiCurrentPage > 0 &&
-      apiCurrentPage !== currentPage
+      apiCurrentPage !== currentPage &&
+      currentPage > apiLastPage
     ) {
       setCurrentPage(apiCurrentPage);
     }
-  }, [currentPage, tablePagination?.current_page]);
+  }, [currentPage, loading, tablePagination?.current_page, tablePagination?.last_page]);
 
   const carouselCards = useMemo(
     () => [
@@ -567,7 +570,7 @@ const Emergencies = () => {
 
             <div className="mt-4">
               <Pagination
-                currentPage={Number(tablePagination?.current_page) || currentPage}
+                currentPage={currentPage}
                 lastPage={Number(tablePagination?.last_page) || 1}
                 onPageChange={handlePageChange}
                 totalItems={Number(tablePagination?.total) || tableData.length}

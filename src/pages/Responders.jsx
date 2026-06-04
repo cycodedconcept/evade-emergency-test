@@ -152,15 +152,18 @@ const Responder = () => {
 
   useEffect(() => {
     const apiCurrentPage = Number(agentPagination?.current_page);
+    const apiLastPage = Number(agentPagination?.last_page) || 1;
 
     if (
+      !loading &&
       Number.isFinite(apiCurrentPage) &&
       apiCurrentPage > 0 &&
-      apiCurrentPage !== currentPage
+      apiCurrentPage !== currentPage &&
+      currentPage > apiLastPage
     ) {
       setCurrentPage(apiCurrentPage);
     }
-  }, [agentPagination?.current_page, currentPage]);
+  }, [agentPagination?.current_page, agentPagination?.last_page, currentPage, loading]);
 
   useEffect(() => {
     if (!token || !selectedAgentId || currentView === 'list') {
@@ -585,7 +588,7 @@ const Responder = () => {
 
         <div className="mt-4">
           <Pagination
-            currentPage={Number(agentPagination?.current_page) || currentPage}
+            currentPage={currentPage}
             lastPage={Number(agentPagination?.last_page) || 1}
             onPageChange={handlePageChange}
             totalItems={Number(agentPagination?.total) || agentList.length}
