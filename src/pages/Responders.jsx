@@ -3,12 +3,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faArrowLeft,
+  faCheckDouble,
+  faClipboardList,
   faPen,
   faPlus,
   faSearch,
+  faUserCheck,
   faUserShield,
+  faUsers,
 } from '@fortawesome/free-solid-svg-icons';
-import { Act, Act2, Com, Org, Org2, Pad, Pink, Pink2 } from '../assets';
 import CardCarousel from './reusables/CardCarousel';
 import Pagination from './reusables/Pagination';
 import {
@@ -209,8 +212,9 @@ const Responder = () => {
             { label: 'Active', value: activeAgents },
           ],
           chartColor: '#2E3192',
-          imageBase: Pad,
-          image: Com,
+          icon: faUsers,
+          iconColor: '#2E3192',
+          iconBackground: '#EEF2FF',
         },
         {
           key: 'active_agents',
@@ -222,8 +226,9 @@ const Responder = () => {
             { label: 'Active', value: activeAgents },
           ],
           chartColor: '#15AC77',
-          imageBase: Act2,
-          image: Act,
+          icon: faUserCheck,
+          iconColor: '#15AC77',
+          iconBackground: '#EAFBF4',
         },
         {
           key: 'open_incidents',
@@ -235,8 +240,9 @@ const Responder = () => {
             { label: 'Open', value: openIncidents },
           ],
           chartColor: '#FE9431',
-          imageBase: Org2,
-          image: Org,
+          icon: faClipboardList,
+          iconColor: '#FE9431',
+          iconBackground: '#FFF5EA',
         },
         {
           key: 'closed_incidents',
@@ -248,8 +254,9 @@ const Responder = () => {
             { label: 'Closed', value: closedIncidents },
           ],
           chartColor: '#FE5B65',
-          imageBase: Pink2,
-          image: Pink,
+          icon: faCheckDouble,
+          iconColor: '#FE5B65',
+          iconBackground: '#FFF1F2',
         },
       ],
     [activeAgents, closedIncidents, inactiveAgents, openIncidents, totalAgents]

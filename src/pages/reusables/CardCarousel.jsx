@@ -9,6 +9,9 @@ const CardCarousel = ({ cards = [] }) => {
           <CardComponent
             key={card.key || card.title || index}
             title={card.title}
+            icon={card.icon}
+            iconColor={card.iconColor}
+            iconBackground={card.iconBackground}
             imageBase={card.imageBase}
             image={card.image}
             value={card.value}

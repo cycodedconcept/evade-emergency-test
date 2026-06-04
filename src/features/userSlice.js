@@ -39,11 +39,13 @@ export const loginUser = createAsyncThunk(
             license_key,
             email,
             password
-           }, {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-           });
+           }, 
+        //    {
+        //     headers: {
+        //         'Content-Type': 'application/json'
+        //     }
+        //    }
+        );
            localStorage.setItem('item', response.data.token);
            return response.data;
         } catch (error) {

@@ -1,4 +1,5 @@
 import React, { useId } from 'react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 const buildFallbackChartData = (value) => {
@@ -12,6 +13,9 @@ const buildFallbackChartData = (value) => {
 
 const CardComponent = ({
   title,
+  icon,
+  iconColor = '#2E3192',
+  iconBackground = '#EEF2FF',
   imageBase,
   image,
   value,
@@ -33,7 +37,25 @@ const CardComponent = ({
                     <p style={{color: "#707A8F", fontSize: '14px'}} className='mt-2'>{title}</p>
                 </div>
                 <div>
-                    <img src={image} alt="" className='w-75'/>
+                    {icon ? (
+                      <div
+                        style={{
+                          width: '44px',
+                          height: '44px',
+                          borderRadius: '14px',
+                          background: iconBackground,
+                          color: iconColor,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '18px',
+                        }}
+                      >
+                        <FontAwesomeIcon icon={icon} />
+                      </div>
+                    ) : (
+                      <img src={image} alt="" className='w-75'/>
+                    )}
                 </div>
             </div>
             <div className="card-body-item">

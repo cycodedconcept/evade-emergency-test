@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
+  faArrowLeft,
   faCalendar,
   faCarCrash,
   faCrosshairs,
@@ -11,6 +12,9 @@ import {
   faPhone,
   faPhoneVolume,
   faSearch,
+  faSkullCrossbones,
+  faStethoscope,
+  faTriangleExclamation,
 } from '@fortawesome/free-solid-svg-icons';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import CardCarousel from './reusables/CardCarousel';
@@ -18,7 +22,7 @@ import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import { searchEmergencyCasesByStatus, closeEmergencyCase } from '../features/createSlice';
 import { emergencyDetails } from '../features/dashboardSlice';
-import { Com, Pink, Org, Act, Pad, Pink2, Org2, Act2, Logo2 } from '../assets';
+import { Logo2 } from '../assets';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY';
 
@@ -183,8 +187,9 @@ const Emergencies = () => {
         helperText: responseCards?.total_emergencies?.change?.text || '0 today',
         chartData: buildCardChartData(responseCards?.total_emergencies),
         chartColor: '#2E3192',
-        imageBase: Pad,
-        image: Com,
+        icon: faTriangleExclamation,
+        iconColor: '#2E3192',
+        iconBackground: '#EEF2FF',
       },
       {
         key: 'fatal_crash',
@@ -193,8 +198,9 @@ const Emergencies = () => {
         helperText: responseCards?.fatal_crash?.change?.text || '0 today',
         chartData: buildCardChartData(responseCards?.fatal_crash),
         chartColor: '#FE5B65',
-        imageBase: Pink2,
-        image: Pink,
+        icon: faSkullCrossbones,
+        iconColor: '#FE5B65',
+        iconBackground: '#FFF1F2',
       },
       {
         key: 'non_fatal_crash',
@@ -203,8 +209,9 @@ const Emergencies = () => {
         helperText: responseCards?.non_fatal_crash?.change?.text || '0 today',
         chartData: buildCardChartData(responseCards?.non_fatal_crash),
         chartColor: '#FE9431',
-        imageBase: Org2,
-        image: Org,
+        icon: faStethoscope,
+        iconColor: '#FE9431',
+        iconBackground: '#FFF5EA',
       },
       {
         key: 'sos_requests',
@@ -213,8 +220,9 @@ const Emergencies = () => {
         helperText: responseCards?.sos_requests?.change?.text || '0 today',
         chartData: buildCardChartData(responseCards?.sos_requests),
         chartColor: '#15AC77',
-        imageBase: Act2,
-        image: Act,
+        icon: faPhoneVolume,
+        iconColor: '#15AC77',
+        iconBackground: '#EAFBF4',
       },
     ],
     [responseCards]
@@ -618,8 +626,15 @@ const Emergencies = () => {
     return (
       <>
         <div className="mt-3 d-flex justify-content-between align-items-center px-3">
-          <button className="p-3 d-btn mb-3" onClick={() => setSelectedIncident(null)}>
-            Back to dashboard
+          <button
+            className="p-3 d-btn mb-3"
+            onClick={() => setSelectedIncident(null)}
+            type="button"
+            aria-label="Back to dashboard"
+            title="Back to dashboard"
+          >
+            <FontAwesomeIcon icon={faArrowLeft} className="d-lg-none" />
+            <span className="d-none d-lg-inline">Back to dashboard</span>
           </button>
           <div className="text-right">
             <h4 className="mb-1">Emergency: {detailIncident.emergency_id}</h4>
@@ -675,12 +690,12 @@ const Emergencies = () => {
                 </div>
               ) : (
                 <>
-                  <div className="d-block d-lg-flex justify-content-between mb-5">
-                    <div className="log">
+                  <div className="row">
+                    <div className="col-md-5 log mb-3 mb-lg-0">
                       <img src={Logo2} alt="" />
                     </div>
-                    <div className="overview">
-                      <p>Emergency Overview</p>
+                    <div className="overview col-md-7">
+                      <p style={{fontSize: '18px'}}>Emergency Overview</p>
                       <div className="d-flex justify-content-between">
                         <p style={{ color: '#707A8F' }}>Emergency ID:</p>
                         <small className="d-block">{detailIncident.emergency_id}</small>
@@ -709,7 +724,7 @@ const Emergencies = () => {
                   </div>
 
                   <div className="row">
-                    <div className="col-sm-12 col-md-12 col-lg-6">
+                    <div className="col-sm-12 col-md-12 col-lg-6 mt-5">
                       <p>Assignment Details</p>
                       <hr />
                       <h6 style={{ color: '#707A8F' }} className='ad'>
@@ -736,7 +751,7 @@ const Emergencies = () => {
                       </h6>
                     </div>
 
-                    <div className="col-sm-12 col-md-12 col-lg-6">
+                    <div className="col-sm-12 col-md-12 col-lg-6 mt-5">
                       <p>Responder Company</p>
                       <hr />
                       <h6 style={{ color: '#707A8F' }} className='ad'>
@@ -857,7 +872,7 @@ const Emergencies = () => {
             </div>
           </div>
 
-          <div className="col-sm-12 col-md-12 col-lg-3">
+          <div className="col-sm-12 col-md-12 col-lg-3 mt-4 mt-lg-0">
             <div
               className="p-3 text-center"
               style={{

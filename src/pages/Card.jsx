@@ -16,6 +16,8 @@ import {
   faCarCrash,
   faLocationArrow,
   faMapLocationDot,
+  faTriangleExclamation,
+  faUsers,
 } from '@fortawesome/free-solid-svg-icons';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import CardCarousel from './reusables/CardCarousel';
@@ -23,18 +25,11 @@ import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import { dashboardData, emergencyDetails } from '../features/dashboardSlice';
 import { closeEmergencyCase } from '../features/createSlice';
+import { getResponderAgents } from '../features/responderSlice';
 import {
   Em,
   War,
   Logo2,
-  Com,
-  Pad,
-  Pink,
-  Pink2,
-  Org,
-  Org2,
-  Act,
-  Act2,
 } from '../assets';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY';
@@ -149,6 +144,7 @@ const Card = forwardRef((props, ref) => {
     emergencyLoading,
     emergencyError,
   } = useSelector((state) => state.dashboard);
+  const { responderAgents } = useSelector((state) => state.responder);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [showMainAlert, setShowMainAlert] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -212,8 +208,16 @@ const Card = forwardRef((props, ref) => {
     return () => clearInterval(interval);
   }, [currentPage, dispatch, token]);
 
+  useEffect(() => {
+    if (!token) return;
+
+    dispatch(getResponderAgents({ token }));
+  }, [dispatch, token]);
+
   const company = dataItem?.company || {};
   const responseCards = dataItem?.cards || {};
+  const responderAgentList = responderAgents?.agents || [];
+  const responderAgentPagination = responderAgents?.pagination || {};
   const tableRows = useMemo(() => dataItem?.table?.rows || [], [dataItem]);
   const tablePagination = dataItem?.table?.pagination || {};
   const mapLocations = useMemo(
@@ -223,7 +227,14 @@ const Card = forwardRef((props, ref) => {
   const fatalCrashValue = toMetricNumber(responseCards?.fatal_crash?.value);
   const nonFatalCrashValue = toMetricNumber(responseCards?.non_fatal_crash?.value);
   const totalCrashOutcomes = fatalCrashValue + nonFatalCrashValue;
+  const responderAgentsTotal =
+    responderAgentPagination?.total !== undefined && responderAgentPagination?.total !== null
+      ? responderAgentPagination.total
+      : responderAgentList.length > 0
+        ? responderAgentList.length
+        : null;
   const totalAgentsValue = pickMetricValue(
+    responderAgentsTotal,
     responseCards?.total_agents?.value,
     dataItem?.stats?.total_agents,
     company?.total_agents,
@@ -281,8 +292,9 @@ const Card = forwardRef((props, ref) => {
         helperText: responseCards?.total_emergencies?.change?.text || '0 today',
         chartData: buildCardChartData(responseCards?.total_emergencies),
         chartColor: '#2E3192',
-        imageBase: Pad,
-        image: Com,
+        icon: faTriangleExclamation,
+        iconColor: '#2E3192',
+        iconBackground: '#EEF2FF',
       },
       {
         key: 'total_agents',
@@ -298,8 +310,9 @@ const Card = forwardRef((props, ref) => {
               ]
             : buildCardChartData(responseCards?.total_agents),
         chartColor: '#29A5DE',
-        imageBase: Act2,
-        image: Act,
+        icon: faUsers,
+        iconColor: '#29A5DE',
+        iconBackground: '#EAF8FF',
       },
       {
         key: 'crash_outcomes',
@@ -314,8 +327,9 @@ const Card = forwardRef((props, ref) => {
           { label: 'Fatal', value: fatalCrashValue, color: '#FE5B65' },
           { label: 'Non-Fatal', value: nonFatalCrashValue, color: '#FE9431' },
         ],
-        imageBase: Pink2,
-        image: Pink,
+        icon: faCarCrash,
+        iconColor: '#FE5B65',
+        iconBackground: '#FFF1F2',
       },
       {
         key: 'sos_requests',
@@ -324,8 +338,9 @@ const Card = forwardRef((props, ref) => {
         helperText: responseCards?.sos_requests?.change?.text || '0 today',
         chartData: buildCardChartData(responseCards?.sos_requests),
         chartColor: '#15AC77',
-        imageBase: Act2,
-        image: Act,
+        icon: faPhoneVolume,
+        iconColor: '#15AC77',
+        iconBackground: '#EAFBF4',
       },
     ],
     [
