@@ -26,6 +26,8 @@ import Pagination from './reusables/Pagination';
 import { dashboardData, emergencyDetails } from '../features/dashboardSlice';
 import { closeEmergencyCase } from '../features/createSlice';
 import { getResponderAgents } from '../features/responderSlice';
+import Swal from 'sweetalert2';
+import { triggerAgentCall } from '../utils/callAgent';
 import {
   Em,
   War,
@@ -133,6 +135,11 @@ const severityStyles = {
   'Non-Fatal': { color: '#2E3192' },
 };
 
+const isIncidentClosedRecord = (incident) =>
+  incident?.closed_status === 1 ||
+  incident?.closed_status === '1' ||
+  String(incident?.incident_status || '').toLowerCase() === 'closed';
+
 const DASHBOARD_REFRESH_INTERVAL_MS = 60000;
 const DASHBOARD_RATE_LIMIT_RETRY_MS = 180000;
 
@@ -152,6 +159,7 @@ const Card = forwardRef((props, ref) => {
   const [showMainAlert, setShowMainAlert] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [closingCaseId, setClosingCaseId] = useState(null);
+  const [callingIncidentId, setCallingIncidentId] = useState(null);
   const emergenciesTableRef = useRef(null);
   const dashboardRequestInFlightRef = useRef(false);
 
@@ -413,6 +421,7 @@ const Card = forwardRef((props, ref) => {
     () =>
       tableRows.map((row) => ({
         ...row,
+        isIncidentClosed: isIncidentClosedRecord(row),
         device_number: row.device_number || 'N/A',
         emergency_id: row.emergency_id || 'N/A',
         type: row.type || 'N/A',
@@ -424,6 +433,9 @@ const Card = forwardRef((props, ref) => {
           row.actions?.call_number ? 'phone' : null,
           row.actions?.can_view ? 'eye' : null,
           row.actions?.directions_url || row.actions?.map_url ? 'map' : null,
+        ].filter(Boolean),
+        disabledActionIcons: [
+          row.actions?.call_number && isIncidentClosedRecord(row) ? 'phone' : null,
         ].filter(Boolean),
         action: 'action',
       })),
@@ -505,11 +517,48 @@ const Card = forwardRef((props, ref) => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleCall = (row) => {
-    const callNumber = row?.actions?.call_number || row?.assigned_phone;
+  const handleCall = async (row) => {
+    const callTargetId =
+      row?.id ?? row?.incident_id ?? row?.emergency_id ?? row?.device_number;
 
-    if (callNumber) {
-      window.location.href = `tel:${callNumber}`;
+    if (!callTargetId || callingIncidentId === callTargetId || isIncidentClosedRecord(row)) {
+      return;
+    }
+
+    try {
+      setCallingIncidentId(callTargetId);
+      Swal.fire({
+        title: 'Connecting call...',
+        text: 'Please wait while we contact the responder agent.',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const response = await triggerAgentCall(row);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Call initiated',
+        text: response?.message || 'Responder agent call request sent successfully.',
+        confirmButtonColor: '#1f81ec',
+      });
+    } catch (callError) {
+      const errorMessage =
+        callError?.response?.data?.message ||
+        callError?.message ||
+        'Unable to initiate the responder agent call.';
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Call failed',
+        text: errorMessage,
+        confirmButtonColor: '#1f81ec',
+      });
+    } finally {
+      setCallingIncidentId(null);
     }
   };
 
@@ -801,6 +850,12 @@ const Card = forwardRef((props, ref) => {
     const isCloseDisabled = isIncidentClosed || !canClose;
     const isClosingCase = closingCaseId === detailIncident.id;
     const closeCaseLabel = isIncidentClosed ? 'Closed' : 'Close Case';
+    const detailCallTargetId =
+      detailIncident?.id ??
+      detailIncident?.incident_id ??
+      detailIncident?.emergency_id ??
+      detailIncident?.device_number;
+    const isCallingDevice = callingIncidentId === detailCallTargetId;
 
     return (
       <>
@@ -862,11 +917,11 @@ const Card = forwardRef((props, ref) => {
                 </div>
               ) : (
                 <>
-                  <div className="d-block d-lg-flex justify-content-between mb-5">
-                    <div className="log">
+                  <div className="row mb-5">
+                    <div className="col-md-5 log">
                       <img src={Logo2} alt="" />
                     </div>
-                    <div className="overview">
+                    <div className="col-md-7 overview">
                       <p>Emergency Overview</p>
                       <div className="d-flex justify-content-between">
                         <p style={{ color: '#707A8F' }}>Emergency ID:</p>
@@ -1065,17 +1120,15 @@ const Card = forwardRef((props, ref) => {
 
               <button
                 className="sh-btn"
-                onClick={() => {
-                  if (callNumber) {
-                    window.location.href = `tel:${callNumber}`;
-                  }
-                }}
+                onClick={() => handleCall(detailIncident)}
+                disabled={isCallingDevice || !callNumber || isIncidentClosed}
+                type="button"
               >
                 {isIncidentActive ? (
                   <span className="status-signal mr-2" aria-hidden="true"></span>
                 ) : null}
                 <FontAwesomeIcon icon={faPhoneVolume} className="mr-2" />
-                Call Device
+                {isCallingDevice ? 'Calling...' : 'Call Device'}
               </button>
 
               <button

@@ -22,6 +22,8 @@ import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import { searchEmergencyCasesByStatus, closeEmergencyCase } from '../features/createSlice';
 import { emergencyDetails } from '../features/dashboardSlice';
+import Swal from 'sweetalert2';
+import { triggerAgentCall } from '../utils/callAgent';
 import { Logo2 } from '../assets';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY';
@@ -38,6 +40,11 @@ const severityStyles = {
   Fatal: { color: '#FE5B65' },
   'Non-Fatal': { color: '#2E3192' },
 };
+
+const isIncidentClosedRecord = (incident) =>
+  incident?.closed_status === 1 ||
+  incident?.closed_status === '1' ||
+  String(incident?.incident_status || '').toLowerCase() === 'closed';
 
 const getStoredToken = () => {
   const tokenItem = localStorage.getItem('item');
@@ -128,6 +135,7 @@ const Emergencies = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [closingCaseId, setClosingCaseId] = useState(null);
+  const [callingIncidentId, setCallingIncidentId] = useState(null);
 
   useEffect(() => {
     if (!token) {
@@ -263,6 +271,7 @@ const Emergencies = () => {
       filteredRows.map((row, index) => ({
         ...row,
         index: (currentPage - 1) * (Number(tablePagination?.per_page) || 10) + index + 1,
+        isIncidentClosed: isIncidentClosedRecord(row),
         device_number: row.device_number || 'N/A',
         emergency_id: row.emergency_id || 'N/A',
         type: row.type || 'N/A',
@@ -274,6 +283,9 @@ const Emergencies = () => {
           row.actions?.call_number ? 'phone' : null,
           row.actions?.can_view ? 'eye' : null,
           row.actions?.directions_url || row.actions?.map_url ? 'map' : null,
+        ].filter(Boolean),
+        disabledActionIcons: [
+          row.actions?.call_number && isIncidentClosedRecord(row) ? 'phone' : null,
         ].filter(Boolean),
         action: 'action',
       })),
@@ -316,11 +328,48 @@ const Emergencies = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleCall = (row) => {
-    const callNumber = row?.actions?.call_number || row?.assigned_phone;
+  const handleCall = async (row) => {
+    const callTargetId =
+      row?.id ?? row?.incident_id ?? row?.emergency_id ?? row?.device_number;
 
-    if (callNumber) {
-      window.location.href = `tel:${callNumber}`;
+    if (!callTargetId || callingIncidentId === callTargetId || isIncidentClosedRecord(row)) {
+      return;
+    }
+
+    try {
+      setCallingIncidentId(callTargetId);
+      Swal.fire({
+        title: 'Connecting call...',
+        text: 'Please wait while we contact the responder agent.',
+        allowOutsideClick: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          Swal.showLoading();
+        },
+      });
+
+      const response = await triggerAgentCall(row);
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Call initiated',
+        text: response?.message || 'Responder agent call request sent successfully.',
+        confirmButtonColor: '#1f81ec',
+      });
+    } catch (callError) {
+      const errorMessage =
+        callError?.response?.data?.message ||
+        callError?.message ||
+        'Unable to initiate the responder agent call.';
+
+      Swal.fire({
+        icon: 'error',
+        title: 'Call failed',
+        text: errorMessage,
+        confirmButtonColor: '#1f81ec',
+      });
+    } finally {
+      setCallingIncidentId(null);
     }
   };
 
@@ -630,6 +679,12 @@ const Emergencies = () => {
     const isCloseDisabled = isIncidentClosed || !canClose;
     const isClosingCase = closingCaseId === detailIncident.id;
     const closeCaseLabel = isIncidentClosed ? 'Closed' : 'Close Case';
+    const detailCallTargetId =
+      detailIncident?.id ??
+      detailIncident?.incident_id ??
+      detailIncident?.emergency_id ??
+      detailIncident?.device_number;
+    const isCallingDevice = callingIncidentId === detailCallTargetId;
 
     return (
       <>
@@ -901,17 +956,15 @@ const Emergencies = () => {
 
               <button
                 className="sh-btn"
-                onClick={() => {
-                  if (callNumber) {
-                    window.location.href = `tel:${callNumber}`;
-                  }
-                }}
+                onClick={() => handleCall(detailIncident)}
+                disabled={isCallingDevice || !callNumber || isIncidentClosed}
+                type="button"
               >
                 {isIncidentActive ? (
                   <span className="status-signal mr-2" aria-hidden="true"></span>
                 ) : null}
                 <FontAwesomeIcon icon={faPhoneVolume} className="mr-2" />
-                Call Device
+                {isCallingDevice ? 'Calling...' : 'Call Device'}
               </button>
 
               <button

@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/call-agent",
+      "destination": "https://2aofmyjqqz47wsdd6wwzywxnam0qokpc.lambda-url.eu-west-2.on.aws/"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "https://evade-api.watchouttech.xyz/api/$1"
     },

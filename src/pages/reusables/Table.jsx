@@ -38,67 +38,51 @@ const Table = ({
     
     const renderActionColumn = (row) => {
         const rowActionIcons = Array.isArray(row?.actionIcons) ? row.actionIcons : actionIcons;
+        const disabledActionIcons = Array.isArray(row?.disabledActionIcons) ? row.disabledActionIcons : [];
+        const renderActionIcon = (iconKey, src, handler) => {
+            const isDisabled = disabledActionIcons.includes(iconKey);
+
+            return (
+              <img
+                src={src}
+                alt=""
+                style={{
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.4 : 1,
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+
+                  if (isDisabled) {
+                    return;
+                  }
+
+                  handler && handler(row);
+                }}
+              />
+            );
+        };
 
         return (
         <div className="d-flex" style={{gap: "10px"}}>
             {rowActionIcons.includes('phone') && (
-              <img 
-                src={Phone} 
-                alt="" 
-                style={{cursor: 'pointer'}} 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onCall && onCall(row); 
-                }}
-              />
+              renderActionIcon('phone', Phone, onCall)
             )}
             
             {rowActionIcons.includes('eye') && (
-              <img 
-                src={Eye} 
-                alt="" 
-                style={{cursor: 'pointer'}} 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onView && onView(row); 
-                }}
-              />
+              renderActionIcon('eye', Eye, onView)
             )}
             
             {rowActionIcons.includes('pencil') && (
-              <img 
-                src={Pencil} 
-                alt="" 
-                style={{cursor: 'pointer'}} 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onEdit && onEdit(row); 
-                }}
-              />
+              renderActionIcon('pencil', Pencil, onEdit)
             )}
             
             {rowActionIcons.includes('map') && (
-              <img 
-                src={Map} 
-                alt="" 
-                style={{cursor: 'pointer'}} 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onMap && onMap(row); 
-                }}
-              />
+              renderActionIcon('map', Map, onMap)
             )}
             
             {rowActionIcons.includes('trash') && (
-              <img 
-                src={Trash} 
-                alt="" 
-                style={{cursor: 'pointer'}} 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  onDelete && onDelete(row); 
-                }}
-              />
+              renderActionIcon('trash', Trash, onDelete)
             )}
         </div>
         );

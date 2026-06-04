@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'https://evade-api.watchouttech.xyz',
         changeOrigin: true,
       },
+      '/call-agent': {
+        target: 'https://2aofmyjqqz47wsdd6wwzywxnam0qokpc.lambda-url.eu-west-2.on.aws',
+        changeOrigin: true,
+        rewrite: () => '/',
+      },
     },
   },
   test: {
