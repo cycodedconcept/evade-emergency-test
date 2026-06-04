@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faDownload } from '@fortawesome/free-solid-svg-icons';
 import {
   ResponsiveContainer,
   LineChart,
@@ -49,6 +49,15 @@ const formatErrorMessage = (error) => {
 
   return error.message || 'Something went wrong.';
 };
+
+const escapeCsvValue = (value) => {
+  const normalized = value === null || value === undefined ? '' : String(value);
+  const escaped = normalized.replace(/"/g, '""');
+
+  return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+};
+
+const toCsvRow = (values) => values.map(escapeCsvValue).join(',');
 
 const renderStateMessage = (title, description) => (
   <div
@@ -153,6 +162,98 @@ const Reports = () => {
     ].filter(Boolean),
     [emergencyTypeStatistics]
   );
+  const hasExportData =
+    Boolean(crashTrends?.rows?.length) ||
+    Boolean(severityChartData.length) ||
+    Boolean(monthlyEmergencyData.length) ||
+    Boolean(emergencySummaryItems.length);
+
+  const handleExportData = () => {
+    if (!hasExportData) {
+      return;
+    }
+
+    const csvLines = [
+      toCsvRow(['Analysis Dashboard']),
+      toCsvRow(['Message', dataItem?.message || '']),
+      toCsvRow(['User Type', dataItem?.user_type || '']),
+      toCsvRow(['Year', filters?.year || '']),
+      toCsvRow(['Status', filters?.status || '']),
+      toCsvRow(['Trend Days', filters?.trend_days || 0]),
+      '',
+      toCsvRow(['Crash Trends']),
+      toCsvRow([
+        'Date',
+        'Day Label',
+        'Display Label',
+        'Total Crashes',
+        'Fatal',
+        'Non-Fatal',
+        'Collisions',
+        'Somersaults',
+        'Submersions',
+        'SOS Alerts',
+      ]),
+      ...(crashTrends?.rows || []).map((row) =>
+        toCsvRow([
+          row?.date,
+          row?.day_label,
+          row?.display_label,
+          toMetricNumber(row?.total_crashes),
+          toMetricNumber(row?.fatal),
+          toMetricNumber(row?.non_fatal),
+          toMetricNumber(row?.collisions),
+          toMetricNumber(row?.somersaults),
+          toMetricNumber(row?.submersions),
+          toMetricNumber(row?.sos_alerts),
+        ])
+      ),
+      '',
+      toCsvRow(['Severity Distribution Summary']),
+      toCsvRow(['Total Cases', toMetricNumber(severityDistribution?.total)]),
+      toCsvRow(['Fatal Cases', toMetricNumber(severityDistribution?.fatal?.count)]),
+      toCsvRow(['Non-Fatal Cases', toMetricNumber(severityDistribution?.non_fatal?.count)]),
+      toCsvRow(['Unknown Cases', toMetricNumber(severityDistribution?.unknown?.count)]),
+      '',
+      toCsvRow(['Severity Distribution Chart']),
+      toCsvRow(['Label', 'Value', 'Percentage']),
+      ...severityChartData.map((item) =>
+        toCsvRow([item?.label, toMetricNumber(item?.value), toMetricNumber(item?.percentage)])
+      ),
+      '',
+      toCsvRow(['Emergency Type Summary']),
+      toCsvRow(['Label', 'Value', 'Change']),
+      ...emergencySummaryItems.map((item) =>
+        toCsvRow([item?.label, toMetricNumber(item?.value), item?.change?.text || '0%'])
+      ),
+      '',
+      toCsvRow(['Monthly Emergency Breakdown']),
+      toCsvRow(['Month', 'Collisions', 'Somersaults', 'Submersions', 'SOS Alerts']),
+      ...monthlyEmergencyData.map((row) =>
+        toCsvRow([
+          row?.month,
+          toMetricNumber(row?.collisions),
+          toMetricNumber(row?.somersaults),
+          toMetricNumber(row?.submersions),
+          toMetricNumber(row?.sosAlerts),
+        ])
+      ),
+    ];
+
+    const blob = new Blob([csvLines.join('\n')], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeYear = filters?.year || 'all';
+
+    link.href = url;
+    link.download = `analysis-dashboard-${safeYear}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
 
   if (!token) {
     return renderStateMessage(
@@ -172,11 +273,29 @@ const Reports = () => {
     return renderStateMessage('Unable to load analytics', formatErrorMessage(error));
   }
 
-  return (
+      return (
     <>
-      <div className="p-3">
-        <h4 className='font-weight-bold'>Analytics</h4>
-        <p><span className='font-weight-bold' style={{color: '#2E3192'}}>Dashboard</span><FontAwesomeIcon icon={faChevronRight} className='mx-2' style={{color: '#9FA6B4', fontSize: '13px'}}/> <span style={{color: '#707A8F'}}>Analytics</span></p>
+      <div className="p-3 d-block d-lg-flex justify-content-between align-items-center">
+        <div>
+          <h4 className='font-weight-bold'>Analytics</h4>
+          <p><span className='font-weight-bold' style={{color: '#2E3192'}}>Dashboard</span><FontAwesomeIcon icon={faChevronRight} className='mx-2' style={{color: '#9FA6B4', fontSize: '13px'}}/> <span style={{color: '#707A8F'}}>Analytics</span></p>
+        </div>
+        <div className="mt-3 mt-lg-0">
+          <button
+            className="ex-btn"
+            onClick={handleExportData}
+            disabled={!hasExportData}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              opacity: hasExportData ? 1 : 0.6,
+              cursor: hasExportData ? 'pointer' : 'not-allowed',
+            }}
+          >
+            <FontAwesomeIcon icon={faDownload} className="mr-2" />
+            Export Data
+          </button>
+        </div>
       </div>
 
       <div className="px-3 mb-4">
@@ -209,7 +328,7 @@ const Reports = () => {
         </div>
       </div>
 
-      <div className="my-4 px-3">
+      <div className="my-4 px-3 report-page">
         <div className="row">
           <div className="col-md-8">
             <div className="card dashboard-card mb-4 border-0 shadow-sm" style={{ borderRadius: '20px' }}>

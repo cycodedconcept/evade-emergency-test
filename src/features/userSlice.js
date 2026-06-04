@@ -41,7 +41,7 @@ export const loginUser = createAsyncThunk(
             password
            }, {
             headers: {
-                'Content-Type': 'multipart/form-data'
+                'Content-Type': 'application/json'
             }
            });
            localStorage.setItem('item', response.data.token);

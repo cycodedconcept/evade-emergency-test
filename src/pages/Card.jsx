@@ -112,6 +112,17 @@ const toMetricNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const pickMetricValue = (...values) => {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
+};
+
 const buildCardChartData = (card) => {
   const total = toMetricNumber(card?.value);
   const today = Math.max(toMetricNumber(card?.today), 0);
@@ -209,6 +220,24 @@ const Card = forwardRef((props, ref) => {
     () => dataItem?.map?.locations || [],
     [dataItem]
   );
+  const fatalCrashValue = toMetricNumber(responseCards?.fatal_crash?.value);
+  const nonFatalCrashValue = toMetricNumber(responseCards?.non_fatal_crash?.value);
+  const totalCrashOutcomes = fatalCrashValue + nonFatalCrashValue;
+  const totalAgentsValue = pickMetricValue(
+    responseCards?.total_agents?.value,
+    dataItem?.stats?.total_agents,
+    company?.total_agents,
+    company?.agent_count,
+    company?.agents_count,
+    company?.total_responders,
+    company?.responders_count
+  );
+  const activeAgentsValue = pickMetricValue(
+    responseCards?.active_agents?.value,
+    dataItem?.stats?.active_agents,
+    company?.active_agents
+  );
+  const inactiveAgentsValue = Math.max(totalAgentsValue - activeAgentsValue, 0);
 
   const latestIncident = useMemo(() => {
     if (!tableRows.length) return null;
@@ -256,24 +285,37 @@ const Card = forwardRef((props, ref) => {
         image: Com,
       },
       {
-        key: 'fatal_crash',
-        title: responseCards?.fatal_crash?.title || 'Fatal Crash',
-        value: responseCards?.fatal_crash?.value ?? 0,
-        helperText: responseCards?.fatal_crash?.change?.text || '0 today',
-        chartData: buildCardChartData(responseCards?.fatal_crash),
-        chartColor: '#FE5B65',
-        imageBase: Pink2,
-        image: Pink,
+        key: 'total_agents',
+        title: responseCards?.total_agents?.title || 'Total Agents',
+        value: totalAgentsValue,
+        helperText:
+          responseCards?.total_agents?.change?.text || `${activeAgentsValue} active`,
+        chartData:
+          totalAgentsValue > 0 || activeAgentsValue > 0
+            ? [
+                { label: 'Inactive', value: inactiveAgentsValue },
+                { label: 'Active', value: activeAgentsValue },
+              ]
+            : buildCardChartData(responseCards?.total_agents),
+        chartColor: '#29A5DE',
+        imageBase: Act2,
+        image: Act,
       },
       {
-        key: 'non_fatal_crash',
-        title: responseCards?.non_fatal_crash?.title || 'Non-Fatal Crash',
-        value: responseCards?.non_fatal_crash?.value ?? 0,
-        helperText: responseCards?.non_fatal_crash?.change?.text || '0 today',
-        chartData: buildCardChartData(responseCards?.non_fatal_crash),
-        chartColor: '#FE9431',
-        imageBase: Org2,
-        image: Org,
+        key: 'crash_outcomes',
+        title: 'Fatal & Non-Fatal',
+        value: totalCrashOutcomes,
+        chartData: [
+          { label: 'Fatal', value: fatalCrashValue },
+          { label: 'Non-Fatal', value: nonFatalCrashValue },
+        ],
+        chartColor: '#FE5B65',
+        details: [
+          { label: 'Fatal', value: fatalCrashValue, color: '#FE5B65' },
+          { label: 'Non-Fatal', value: nonFatalCrashValue, color: '#FE9431' },
+        ],
+        imageBase: Pink2,
+        image: Pink,
       },
       {
         key: 'sos_requests',
@@ -286,7 +328,15 @@ const Card = forwardRef((props, ref) => {
         image: Act,
       },
     ],
-    [responseCards]
+    [
+      activeAgentsValue,
+      fatalCrashValue,
+      inactiveAgentsValue,
+      nonFatalCrashValue,
+      responseCards,
+      totalAgentsValue,
+      totalCrashOutcomes,
+    ]
   );
 
   const tableData = useMemo(
@@ -449,15 +499,6 @@ const Card = forwardRef((props, ref) => {
 
   const renderDashboard = () => (
     <>
-      <div className="d-block d-lg-flex justify-content-between p-3 mt-3">
-        <div>
-          <h5 style={{ color: '#14181F' }}>
-            Welcome {company?.company_name || 'Responder'}
-          </h5>
-          <p style={{ color: '#707A8F' }}>Provides an overview of key metrics</p>
-        </div>
-      </div>
-
       <CardCarousel cards={carouselCards} />
 
       {latestIncident && showMainAlert && (
@@ -666,10 +707,16 @@ const Card = forwardRef((props, ref) => {
         : closedStatusValue === 0 || closedStatusValue === '0'
           ? 'Open'
           : 'N/A';
+    const incidentStatusLabel =
+      closedStatusValue === 1 || closedStatusValue === '1'
+        ? 'Closed'
+        : closedStatusValue === 0 || closedStatusValue === '0'
+          ? 'Active'
+          : 'N/A';
     const severityStyle =
       severityStyles[detailIncident.severity] || severityStyles['Non-Fatal'];
-    const companyStatus = String(company?.status || 'N/A');
-    const isCompanyActive = companyStatus.toLowerCase() === 'active';
+    const isIncidentActive =
+      closedStatusValue === 0 || closedStatusValue === '0';
     const detailIsLoading = emergencyLoading && !emergencyIncident;
     const detailHasError = emergencyError && !emergencyIncident;
     const isIncidentClosed =
@@ -823,12 +870,12 @@ const Card = forwardRef((props, ref) => {
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Status:{' '}
                         <span
-                          className={`ml-2 ${isCompanyActive ? 'status-indicator active' : 'status-indicator'}`}
+                          className={`ml-2 status-indicator ${isIncidentActive ? 'active' : isIncidentClosed ? 'closed' : ''}`}
                         >
-                          {isCompanyActive ? (
+                          {isIncidentActive ? (
                             <span className="status-signal" aria-hidden="true"></span>
                           ) : null}
-                          <span className='stx'>{companyStatus}</span>
+                          <span className='stx'>{incidentStatusLabel}</span>
                         </span>
                       </h6>
                     </div>
@@ -867,7 +914,7 @@ const Card = forwardRef((props, ref) => {
                         Device ID: <span className='stx ml-2'>{rawIncident.deviceid || detailIncident.device_number || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
-                        Raw Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
+                        Crash Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Created At: <span className='stx ml-2'>{rawIncident.created_at || detailIncident.assigned_at || 'N/A'}</span>
@@ -946,14 +993,6 @@ const Card = forwardRef((props, ref) => {
               </button>
 
               <button
-                className="sh-btn mb-2"
-                onClick={() => openExternalUrl(detailIncident.actions?.map_url)}
-              >
-                <FontAwesomeIcon icon={faMapLocationDot} className="mr-2" />
-                Open Map
-              </button>
-
-              <button
                 className="sh-btn"
                 onClick={() => {
                   if (callNumber) {
@@ -961,9 +1000,11 @@ const Card = forwardRef((props, ref) => {
                   }
                 }}
               >
-                <span className="status-signal mr-2" aria-hidden="true"></span>
+                {isIncidentActive ? (
+                  <span className="status-signal mr-2" aria-hidden="true"></span>
+                ) : null}
                 <FontAwesomeIcon icon={faPhoneVolume} className="mr-2" />
-                Call Responder
+                Call Device
               </button>
 
               <button

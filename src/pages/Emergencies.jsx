@@ -54,6 +54,15 @@ const toMetricNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const escapeCsvValue = (value) => {
+  const normalized = value === null || value === undefined ? '' : String(value);
+  const escaped = normalized.replace(/"/g, '""');
+
+  return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+};
+
+const toCsvRow = (values) => values.map(escapeCsvValue).join(',');
+
 const toNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -232,6 +241,7 @@ const Emergencies = () => {
         .some((value) => String(value).toLowerCase().includes(normalizedSearch))
     );
   }, [searchTerm, tableRows]);
+  const hasExportData = Boolean(filteredRows.length);
 
   const tableData = useMemo(
     () =>
@@ -351,6 +361,69 @@ const Emergencies = () => {
     setCurrentPage(page);
   };
 
+  const handleExportData = () => {
+    if (!filteredRows.length) {
+      return;
+    }
+
+    const csvLines = [
+      toCsvRow(['Emergency Cases']),
+      toCsvRow(['Company', company?.company_name || '']),
+      toCsvRow(['Status Filter', statusFilter || 'all']),
+      toCsvRow(['Search Term', searchTerm.trim() || 'All']),
+      toCsvRow(['Current Page', Number(tablePagination?.current_page) || currentPage]),
+      toCsvRow(['Rows Exported', filteredRows.length]),
+      '',
+      toCsvRow([
+        'Device Number',
+        'Emergency ID',
+        'Type',
+        'Severity',
+        'Priority',
+        'Assigned Phone',
+        'Incident Status',
+        'Date/Time',
+        'Nature of Request',
+        'Assignment Source',
+        'Assigned At',
+        'Latitude',
+        'Longitude',
+      ]),
+      ...filteredRows.map((row) =>
+        toCsvRow([
+          row?.device_number || 'N/A',
+          row?.emergency_id || 'N/A',
+          row?.type || 'N/A',
+          row?.severity || 'N/A',
+          row?.priority || 'N/A',
+          row?.actions?.call_number || row?.assigned_phone || 'N/A',
+          row?.incident_status || 'N/A',
+          formatDateTimeLabel(row),
+          row?.nature_of_request || 'N/A',
+          row?.assignment_source || 'N/A',
+          row?.assigned_at || 'N/A',
+          row?.latitude || 'N/A',
+          row?.longitude || 'N/A',
+        ])
+      ),
+    ];
+
+    const blob = new Blob([csvLines.join('\n')], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeStatus = String(statusFilter || 'all').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const safePage = Number(tablePagination?.current_page) || currentPage;
+
+    link.href = url;
+    link.download = `emergencies-${safeStatus}-page-${safePage}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   const renderStateMessage = (title, description) => (
     <div
       className="text-center py-5 mt-4"
@@ -377,7 +450,16 @@ const Emergencies = () => {
         <div className="mt-3 mt-lg-0">
           <button
             className="ex-btn"
-            style={{ height: controlHeight, display: 'inline-flex', alignItems: 'center' }}
+            onClick={handleExportData}
+            disabled={!hasExportData}
+            type="button"
+            style={{
+              height: controlHeight,
+              display: 'inline-flex',
+              alignItems: 'center',
+              opacity: hasExportData ? 1 : 0.6,
+              cursor: hasExportData ? 'pointer' : 'not-allowed',
+            }}
           >
             <FontAwesomeIcon icon={faDownload} className="mr-2" />
             Export Data
@@ -509,10 +591,16 @@ const Emergencies = () => {
         : closedStatusValue === 0 || closedStatusValue === '0'
           ? 'Open'
           : 'N/A';
+    const incidentStatusLabel =
+      closedStatusValue === 1 || closedStatusValue === '1'
+        ? 'Closed'
+        : closedStatusValue === 0 || closedStatusValue === '0'
+          ? 'Active'
+          : 'N/A';
     const severityStyle =
       severityStyles[detailIncident.severity] || severityStyles['Non-Fatal'];
-    const companyStatus = String(company?.status || 'N/A');
-    const isCompanyActive = companyStatus.toLowerCase() === 'active';
+    const isIncidentActive =
+      closedStatusValue === 0 || closedStatusValue === '0';
     const detailIsLoading = emergencyLoading && !emergencyIncident;
     const detailHasError = emergencyError && !emergencyIncident;
     const isIncidentClosed =
@@ -666,12 +754,12 @@ const Emergencies = () => {
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Status:{' '}
                         <span
-                          className={`ml-2 ${isCompanyActive ? 'status-indicator active' : 'status-indicator'}`}
+                          className={`ml-2 status-indicator ${isIncidentActive ? 'active' : isIncidentClosed ? 'closed' : ''}`}
                         >
-                          {isCompanyActive ? (
+                          {isIncidentActive ? (
                             <span className="status-signal" aria-hidden="true"></span>
                           ) : null}
-                          <span className='stx'>{companyStatus}</span>
+                          <span className='stx'>{incidentStatusLabel}</span>
                         </span>
                       </h6>
                     </div>
@@ -710,7 +798,7 @@ const Emergencies = () => {
                         Device ID: <span className='stx ml-2'>{rawIncident.deviceid || detailIncident.device_number || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
-                        Raw Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
+                        Crash Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Created At: <span className='stx ml-2'>{rawIncident.created_at || detailIncident.assigned_at || 'N/A'}</span>
@@ -789,14 +877,6 @@ const Emergencies = () => {
               </button>
 
               <button
-                className="sh-btn mb-2"
-                onClick={() => openExternalUrl(detailIncident.actions?.map_url)}
-              >
-                <FontAwesomeIcon icon={faMapLocationDot} className="mr-2" />
-                Open Map
-              </button>
-
-              <button
                 className="sh-btn"
                 onClick={() => {
                   if (callNumber) {
@@ -804,9 +884,11 @@ const Emergencies = () => {
                   }
                 }}
               >
-                <span className="status-signal mr-2" aria-hidden="true"></span>
+                {isIncidentActive ? (
+                  <span className="status-signal mr-2" aria-hidden="true"></span>
+                ) : null}
                 <FontAwesomeIcon icon={faPhoneVolume} className="mr-2" />
-                Call Responder
+                Call Device
               </button>
 
               <button

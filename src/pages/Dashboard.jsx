@@ -28,6 +28,7 @@ const Dashboard = () => {
     flag: "https://flagcdn.com/w40/ng.png",
   });
   const [dashboardRows, setDashboardRows] = useState([]);
+  const [dashboardCompanyName, setDashboardCompanyName] = useState("Responder");
   const [pendingNotificationTarget, setPendingNotificationTarget] = useState(null);
 
   const cardRef = useRef(null);
@@ -38,14 +39,17 @@ const Dashboard = () => {
 
       if (!storedDash) {
         setDashboardRows([]);
+        setDashboardCompanyName("Responder");
         return;
       }
 
       const parsedDash = JSON.parse(storedDash);
       setDashboardRows(Array.isArray(parsedDash?.table?.rows) ? parsedDash.table.rows : []);
+      setDashboardCompanyName(parsedDash?.company?.company_name || "Responder");
     } catch (error) {
       console.error("Error reading dashboard notifications:", error);
       setDashboardRows([]);
+      setDashboardCompanyName("Responder");
     }
   };
 
@@ -182,8 +186,20 @@ const Dashboard = () => {
                   />
               </div>
             </div> */}
-            <div className='d-flex justify-content-end'>
-              <div ref={notificationRef} style={{ position: "relative", marginLeft: "15px" }}>
+            <div className='d-flex justify-content-between align-items-center flex-wrap px-3'>
+              {activeMenu === "Dashboard" ? (
+                <div>
+                  <h5 style={{ color: '#14181F', marginBottom: '4px' }}>
+                    Welcome {dashboardCompanyName}
+                  </h5>
+                  <p style={{ color: '#707A8F', marginBottom: 0 }}>
+                    Provides an overview of key metrics
+                  </p>
+                </div>
+              ) : (
+                <div />
+              )}
+              <div ref={notificationRef} style={{ position: "relative" }}>
                 <FontAwesomeIcon
                   icon={faBell}
                   style={iconStyle}

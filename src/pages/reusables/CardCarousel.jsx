@@ -13,6 +13,8 @@ const CardCarousel = ({ cards = [] }) => {
             image={card.image}
             value={card.value}
             helperText={card.helperText}
+            details={card.details}
+            showHelperText={card.showHelperText}
             chartData={card.chartData}
             chartColor={card.chartColor}
           />

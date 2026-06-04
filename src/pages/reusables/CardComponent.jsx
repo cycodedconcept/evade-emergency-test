@@ -16,6 +16,8 @@ const CardComponent = ({
   image,
   value,
   helperText,
+  details = [],
+  showHelperText = false,
   chartData = [],
   chartColor = '#2E3192',
 }) => {
@@ -36,9 +38,23 @@ const CardComponent = ({
             </div>
             <div className="card-body-item">
                 <p style={{fontSize: "20px"}}>{value}</p>
-                {/* {helperText ? (
-                  <small style={{color: "#707A8F", fontSize: "13px"}}>{helperText}</small>
-                ) : null} */}
+                {details.length ? (
+                  <div className="card-metric-list">
+                    {details.map((item) => (
+                      <div className="card-metric-row" key={`${title}-${item.label}`}>
+                        <span
+                          className="card-metric-label"
+                          style={item.color ? { color: item.color } : undefined}
+                        >
+                          {item.label}
+                        </span>
+                        <span className="card-metric-value">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : showHelperText && helperText ? (
+                  <small className="card-helper-text">{helperText}</small>
+                ) : null}
             </div>
             <div className="card-base">
                 {hasChartData || !imageBase ? (

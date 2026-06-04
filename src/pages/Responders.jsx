@@ -622,7 +622,7 @@ const Responder = () => {
             >
               <div className="d-block d-lg-flex justify-content-between align-items-start">
                 <div>
-                  <h4 className="mb-1" style={{ color: '#14181F' }}>
+                  <h4 className="mb-1 mb-4" style={{ color: '#14181F' }}>
                     {selectedAgent.name}
                   </h4>
                   <p className="mb-0" style={{ color: '#707A8F' }}>
@@ -647,12 +647,12 @@ const Responder = () => {
                     {selectedAgent.address || 'N/A'}
                   </div>
                 </div>
-                <div className="col-md-4 mb-3">
+                {/* <div className="col-md-4 mb-3">
                   <small style={{ color: '#707A8F' }}>Coordinates</small>
                   <div style={{ color: '#14181F', fontWeight: '600' }}>
                     {selectedAgent.lat || 'N/A'}, {selectedAgent.log || 'N/A'}
                   </div>
-                </div>
+                </div> */}
                 <div className="col-md-4 mb-3">
                   <small style={{ color: '#707A8F' }}>Created</small>
                   <div style={{ color: '#14181F', fontWeight: '600' }}>
