@@ -11,14 +11,16 @@ const initialState = {
     emergency: {},
     emergencyLoading: false,
     emergencyError: null,
+    dashboardRequestId: null,
 }
 
 
 export const dashboardData = createAsyncThunk(
     'dashboard/dashboardData',
-    async ({token, page = 1}, {rejectWithValue}) => {
+    async ({token, page = 1}, {rejectWithValue, signal}) => {
         try {
             const response = await axios.get(`${API_URL}/responder/emergencies/dashboard?page=${page}`, {
+                signal,
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
@@ -62,20 +64,31 @@ const dashboardSlice = createSlice({
     reducers: {},
     extraReducers: (builder) => {
         builder
-        .addCase(dashboardData.pending, (state) => {
+        .addCase(dashboardData.pending, (state, action) => {
             state.loading = true;
             state.success = false;
             state.error = null;
+            state.dashboardRequestId = action.meta.requestId;
         })
         .addCase(dashboardData.fulfilled, (state, action) => {
+            if (state.dashboardRequestId !== action.meta.requestId) {
+                return;
+            }
+
             state.loading = false;
             state.success = true;
             state.dataItem = action.payload
+            state.dashboardRequestId = null;
         })
         .addCase(dashboardData.rejected, (state, action) => {
+            if (state.dashboardRequestId !== action.meta.requestId) {
+                return;
+            }
+
             state.loading = false;
             state.success = false;
-            state.error = action.payload;
+            state.error = action.meta.aborted ? null : action.payload;
+            state.dashboardRequestId = null;
         })
         .addCase(emergencyDetails.pending, (state) => {
             state.emergencyLoading = true;

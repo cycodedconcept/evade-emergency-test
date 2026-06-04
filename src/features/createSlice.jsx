@@ -8,6 +8,7 @@ const initialState = {
   error: null,
   closeEmergencyItem: {},
   emergencySearchResults: {},
+  emergencySearchRequestId: null,
 };
 
 const buildAuthHeaders = (token) => ({
@@ -40,10 +41,11 @@ export const closeEmergencyCase = createAsyncThunk(
 
 export const searchEmergencyCasesByStatus = createAsyncThunk(
   'create/searchEmergencyCasesByStatus',
-  async ({ token, status = 'closed', page = 1 }, { rejectWithValue }) => {
+  async ({ token, status = 'closed', page = 1 }, { rejectWithValue, signal }) => {
     try {
       const response = await axios.get(`${API_URL}/responder/emergencies/dashboard`, {
         params: { status, page },
+        signal,
         headers: buildAuthHeaders(token),
       });
 
@@ -79,20 +81,31 @@ const emergencyCreateSlice = createSlice({
         state.success = false;
         state.error = action.payload;
       })
-      .addCase(searchEmergencyCasesByStatus.pending, (state) => {
+      .addCase(searchEmergencyCasesByStatus.pending, (state, action) => {
         state.loading = true;
         state.success = false;
         state.error = null;
+        state.emergencySearchRequestId = action.meta.requestId;
       })
       .addCase(searchEmergencyCasesByStatus.fulfilled, (state, action) => {
+        if (state.emergencySearchRequestId !== action.meta.requestId) {
+          return;
+        }
+
         state.loading = false;
         state.success = true;
         state.emergencySearchResults = action.payload;
+        state.emergencySearchRequestId = null;
       })
       .addCase(searchEmergencyCasesByStatus.rejected, (state, action) => {
+        if (state.emergencySearchRequestId !== action.meta.requestId) {
+          return;
+        }
+
         state.loading = false;
         state.success = false;
-        state.error = action.payload;
+        state.error = action.meta.aborted ? null : action.payload;
+        state.emergencySearchRequestId = null;
       });
   },
 });

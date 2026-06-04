@@ -13,6 +13,7 @@ const initialState = {
   responderAgentLoginItem: {},
   responderProfile: {},
   responderAnalysisDashboard: {},
+  responderAgentsRequestId: null,
 };
 
 const buildAuthHeaders = (token) => ({
@@ -45,10 +46,11 @@ export const createResponderUser = createAsyncThunk(
 
 export const getResponderAgents = createAsyncThunk(
   'responder/getResponderAgents',
-  async ({ token, search = '', page = 1 }, { rejectWithValue }) => {
+  async ({ token, search = '', page = 1 }, { rejectWithValue, signal }) => {
     try {
       const response = await axios.get(`${API_URL}/responder/agents`, {
         params: { search, page },
+        signal,
         headers: buildAuthHeaders(token),
       });
 
@@ -188,20 +190,31 @@ const responderSlice = createSlice({
         state.success = false;
         state.error = action.payload;
       })
-      .addCase(getResponderAgents.pending, (state) => {
+      .addCase(getResponderAgents.pending, (state, action) => {
         state.loading = true;
         state.success = false;
         state.error = null;
+        state.responderAgentsRequestId = action.meta.requestId;
       })
       .addCase(getResponderAgents.fulfilled, (state, action) => {
+        if (state.responderAgentsRequestId !== action.meta.requestId) {
+          return;
+        }
+
         state.loading = false;
         state.success = true;
         state.responderAgents = action.payload;
+        state.responderAgentsRequestId = null;
       })
       .addCase(getResponderAgents.rejected, (state, action) => {
+        if (state.responderAgentsRequestId !== action.meta.requestId) {
+          return;
+        }
+
         state.loading = false;
         state.success = false;
-        state.error = action.payload;
+        state.error = action.meta.aborted ? null : action.payload;
+        state.responderAgentsRequestId = null;
       })
       .addCase(getResponderAgentDetails.pending, (state) => {
         state.loading = true;

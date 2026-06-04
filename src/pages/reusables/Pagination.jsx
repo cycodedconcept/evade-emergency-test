@@ -1,13 +1,26 @@
 import React from 'react'
 
 const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageUrl, totalItems, perPage}) => {
+    const safeLastPage = Math.max(Number(lastPage) || 1, 1);
+    const requestedCurrentPage = Number(currentPage) || 1;
+    const safeCurrentPage = Math.min(Math.max(requestedCurrentPage, 1), safeLastPage);
+    const safeTotalItems = Math.max(Number(totalItems) || 0, 0);
+    const safePerPage = Math.max(Number(perPage) || 0, 0);
+    const startEntry =
+      safeTotalItems === 0 || safePerPage === 0
+        ? 0
+        : Math.min((safeCurrentPage - 1) * safePerPage + 1, safeTotalItems);
+    const endEntry =
+      safeTotalItems === 0 || safePerPage === 0
+        ? 0
+        : Math.min(safeCurrentPage * safePerPage, safeTotalItems);
     const pageNumbers = [];
     const maxPagesToShow = 5;
-    const hasPreviousPage = currentPage > 1 || Boolean(prevPageUrl);
-    const hasNextPage = currentPage < lastPage || Boolean(nextPageUrl);
+    const hasPreviousPage = safeCurrentPage > 1 || Boolean(prevPageUrl);
+    const hasNextPage = safeCurrentPage < safeLastPage || Boolean(nextPageUrl);
     
-    let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-    let endPage = Math.min(lastPage, startPage + maxPagesToShow - 1);
+    let startPage = Math.max(1, safeCurrentPage - Math.floor(maxPagesToShow / 2));
+    let endPage = Math.min(safeLastPage, startPage + maxPagesToShow - 1);
     
     if (endPage - startPage + 1 < maxPagesToShow) {
       startPage = Math.max(1, endPage - maxPagesToShow + 1);
@@ -58,15 +71,16 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
      <div className="pagination-shell d-flex justify-content-between align-items-center px-2">
       <div className="pagination-info">
         <p className="mb-0" style={{ color: '#707A8F', fontSize: '14px' }}>
-          Showing <span style={{ fontWeight: '600', color: '#14181F' }}>{Math.min((currentPage - 1) * perPage + 1, totalItems)}</span> to <span style={{ fontWeight: '600', color: '#14181F' }}>{Math.min(currentPage * perPage, totalItems)}</span> of <span style={{ fontWeight: '600', color: '#14181F' }}>{totalItems}</span> entries
+          Showing <span style={{ fontWeight: '600', color: '#14181F' }}>{startEntry}</span> to <span style={{ fontWeight: '600', color: '#14181F' }}>{endEntry}</span> of <span style={{ fontWeight: '600', color: '#14181F' }}>{safeTotalItems}</span> entries
         </p>
       </div>
       
       <div className="pagination-buttons d-flex align-items-center">
         <button 
+          type="button"
           className="pagination-button"
           style={!hasPreviousPage ? disabledButtonStyle : navButtonStyle}
-          onClick={() => hasPreviousPage && onPageChange(currentPage - 1)}
+          onClick={() => hasPreviousPage && onPageChange(safeCurrentPage - 1)}
           disabled={!hasPreviousPage}
         >
           ← Prev
@@ -74,9 +88,10 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
         
         {pageNumbers.map(number => (
           <button 
+            type="button"
             className="pagination-button"
             key={number} 
-            style={currentPage === number ? activeButtonStyle : baseButtonStyle}
+            style={safeCurrentPage === number ? activeButtonStyle : baseButtonStyle}
             onClick={() => onPageChange(number)}
           >
             {number}
@@ -84,9 +99,10 @@ const Pagination = ({currentPage, lastPage, onPageChange, nextPageUrl, prevPageU
         ))}
         
         <button 
+          type="button"
           className="pagination-button"
           style={!hasNextPage ? disabledButtonStyle : navButtonStyle}
-          onClick={() => hasNextPage && onPageChange(currentPage + 1)}
+          onClick={() => hasNextPage && onPageChange(safeCurrentPage + 1)}
           disabled={!hasNextPage}
         >
           Next →

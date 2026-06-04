@@ -127,11 +127,15 @@ const Responder = () => {
       return;
     }
 
+    let request;
     const timer = setTimeout(() => {
-      dispatch(getResponderAgents({ token, search: searchTerm.trim(), page: currentPage }));
+      request = dispatch(getResponderAgents({ token, search: searchTerm.trim(), page: currentPage }));
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      request?.abort();
+    };
   }, [currentPage, dispatch, searchTerm, token]);
 
   const agentList = responderAgents?.agents || [];
@@ -186,7 +190,7 @@ const Responder = () => {
     dispatch(getResponderAgents({ token, search: searchTerm.trim(), page: currentPage }));
     dispatch(getResponderProfile({ token }));
     dispatch(getResponderAgentDetails({ token, id: createResponderUserItem.user.id }));
-  }, [createResponderUserItem, currentPage, dispatch, searchTerm, token]);
+  }, [createResponderUserItem?.user?.id, dispatch, token]);
 
   useEffect(() => {
     if (!token || !updatedResponderAgent?.agent?.id) {
@@ -197,7 +201,7 @@ const Responder = () => {
     dispatch(getResponderAgents({ token, search: searchTerm.trim(), page: currentPage }));
     dispatch(getResponderProfile({ token }));
     dispatch(getResponderAgentDetails({ token, id: updatedResponderAgent.agent.id }));
-  }, [currentPage, dispatch, searchTerm, token, updatedResponderAgent]);
+  }, [dispatch, token, updatedResponderAgent?.agent?.id]);
 
   const summaryCards = useMemo(
     () =>
@@ -323,13 +327,14 @@ const Responder = () => {
   };
 
   const handlePageChange = (page) => {
+    const nextPage = Number(page);
     const lastPage = Number(agentPagination?.last_page) || 1;
 
-    if (page < 1 || page > lastPage || page === currentPage) {
+    if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > lastPage || nextPage === currentPage) {
       return;
     }
 
-    setCurrentPage(page);
+    setCurrentPage(nextPage);
   };
 
   const renderStateMessage = (title, description) => (

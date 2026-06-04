@@ -133,6 +133,9 @@ const severityStyles = {
   'Non-Fatal': { color: '#2E3192' },
 };
 
+const DASHBOARD_REFRESH_INTERVAL_MS = 60000;
+const DASHBOARD_RATE_LIMIT_RETRY_MS = 180000;
+
 const Card = forwardRef((props, ref) => {
   const dispatch = useDispatch();
   const token = getStoredToken();
@@ -150,6 +153,7 @@ const Card = forwardRef((props, ref) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [closingCaseId, setClosingCaseId] = useState(null);
   const emergenciesTableRef = useRef(null);
+  const dashboardRequestInFlightRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     scrollToTable: () => {
@@ -194,25 +198,73 @@ const Card = forwardRef((props, ref) => {
   useEffect(() => {
     if (!token) return;
 
+    let timeoutId;
+    let isDisposed = false;
+    let activeRequest;
+
+    const scheduleNextRefresh = (delay) => {
+      if (isDisposed) {
+        return;
+      }
+
+      timeoutId = window.setTimeout(fetchData, delay);
+    };
+
     const fetchData = async () => {
+      if (dashboardRequestInFlightRef.current) {
+        return;
+      }
+
+      dashboardRequestInFlightRef.current = true;
+      activeRequest = dispatch(dashboardData({ token, page: currentPage }));
+
       try {
-        await dispatch(dashboardData({ token, page: currentPage })).unwrap();
+        await activeRequest.unwrap();
+        scheduleNextRefresh(DASHBOARD_REFRESH_INTERVAL_MS);
       } catch (fetchError) {
+        if (fetchError?.name === 'AbortError') {
+          return;
+        }
+
         console.error('Dashboard refresh failed:', fetchError);
+        const errorMessage =
+          typeof fetchError === 'string'
+            ? fetchError
+            : fetchError?.message || '';
+        const retryDelay = /too many/i.test(errorMessage)
+          ? DASHBOARD_RATE_LIMIT_RETRY_MS
+          : DASHBOARD_REFRESH_INTERVAL_MS;
+
+        scheduleNextRefresh(retryDelay);
+      } finally {
+        activeRequest = null;
+        dashboardRequestInFlightRef.current = false;
       }
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 20000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isDisposed = true;
+      activeRequest?.abort();
+      dashboardRequestInFlightRef.current = false;
+      window.clearTimeout(timeoutId);
+    };
   }, [currentPage, dispatch, token]);
 
   useEffect(() => {
-    if (!token) return;
+    const agentsLoaded =
+      responderAgents?.pagination?.total !== undefined &&
+      responderAgents?.pagination?.total !== null;
 
-    dispatch(getResponderAgents({ token }));
-  }, [dispatch, token]);
+    if (!token || agentsLoaded) return;
+
+    const request = dispatch(getResponderAgents({ token, page: 1 }));
+
+    return () => {
+      request.abort();
+    };
+  }, [dispatch, responderAgents?.pagination?.total, token]);
 
   const company = dataItem?.company || {};
   const responseCards = dataItem?.cards || {};
@@ -495,13 +547,14 @@ const Card = forwardRef((props, ref) => {
   };
 
   const handlePageChange = (page) => {
+    const nextPage = Number(page);
     const lastPage = Number(tablePagination?.last_page) || 1;
 
-    if (page < 1 || page > lastPage || page === currentPage) {
+    if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > lastPage || nextPage === currentPage) {
       return;
     }
 
-    setCurrentPage(page);
+    setCurrentPage(nextPage);
 
     if (emergenciesTableRef.current) {
       emergenciesTableRef.current.scrollIntoView({

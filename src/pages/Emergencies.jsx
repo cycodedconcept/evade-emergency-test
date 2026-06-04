@@ -134,13 +134,17 @@ const Emergencies = () => {
       return;
     }
 
-    dispatch(
+    const request = dispatch(
       searchEmergencyCasesByStatus({
         token,
         status: statusFilter,
         page: currentPage,
       })
     );
+
+    return () => {
+      request.abort();
+    };
   }, [currentPage, dispatch, statusFilter, token]);
 
   const company = emergencySearchResults?.company || {};
@@ -360,13 +364,14 @@ const Emergencies = () => {
   };
 
   const handlePageChange = (page) => {
+    const nextPage = Number(page);
     const lastPage = Number(tablePagination?.last_page) || 1;
 
-    if (page < 1 || page > lastPage || page === currentPage) {
+    if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage > lastPage || nextPage === currentPage) {
       return;
     }
 
-    setCurrentPage(page);
+    setCurrentPage(nextPage);
   };
 
   const handleExportData = () => {
