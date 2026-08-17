@@ -8,32 +8,46 @@ const initialState = {
     loading: false,
     error: null,
     dataItem: [],
+    liveDataItem: {},
+    liveLoading: false,
+    liveError: null,
     emergency: {},
     emergencyLoading: false,
     emergencyError: null,
     dashboardRequestId: null,
+    liveDashboardRequestId: null,
 }
 
+const fetchDashboardPayload = async ({ token, page = 1, signal }, rejectWithValue) => {
+    try {
+        const response = await axios.get(`${API_URL}/responder/emergencies/dashboard?page=${page}`, {
+            signal,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`
+            }
+        })
+
+        return response.data;
+    } catch (error) {
+        if (error.response && error.response.data) {
+            return rejectWithValue(error.response.data);
+        }
+        return rejectWithValue(error.message || "Something went wrong");
+    }
+};
 
 export const dashboardData = createAsyncThunk(
     'dashboard/dashboardData',
     async ({token, page = 1}, {rejectWithValue, signal}) => {
-        try {
-            const response = await axios.get(`${API_URL}/responder/emergencies/dashboard?page=${page}`, {
-                signal,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                }
-            })
-            localStorage.setItem("dash", JSON.stringify(response.data))
-            return response.data;
-        } catch (error) {
-            if (error.response && error.response.data) {
-                return rejectWithValue(error.response.data);
-            }
-            return rejectWithValue(error.message || "Something went wrong");
-        }
+        return fetchDashboardPayload({ token, page, signal }, rejectWithValue);
+    }
+)
+
+export const dashboardLiveData = createAsyncThunk(
+    'dashboard/dashboardLiveData',
+    async ({token}, {rejectWithValue, signal}) => {
+        return fetchDashboardPayload({ token, page: 1, signal }, rejectWithValue);
     }
 )
 
@@ -89,6 +103,29 @@ const dashboardSlice = createSlice({
             state.success = false;
             state.error = action.meta.aborted ? null : action.payload;
             state.dashboardRequestId = null;
+        })
+        .addCase(dashboardLiveData.pending, (state, action) => {
+            state.liveLoading = true;
+            state.liveError = null;
+            state.liveDashboardRequestId = action.meta.requestId;
+        })
+        .addCase(dashboardLiveData.fulfilled, (state, action) => {
+            if (state.liveDashboardRequestId !== action.meta.requestId) {
+                return;
+            }
+
+            state.liveLoading = false;
+            state.liveDataItem = action.payload;
+            state.liveDashboardRequestId = null;
+        })
+        .addCase(dashboardLiveData.rejected, (state, action) => {
+            if (state.liveDashboardRequestId !== action.meta.requestId) {
+                return;
+            }
+
+            state.liveLoading = false;
+            state.liveError = action.meta.aborted ? null : action.payload;
+            state.liveDashboardRequestId = null;
         })
         .addCase(emergencyDetails.pending, (state) => {
             state.emergencyLoading = true;

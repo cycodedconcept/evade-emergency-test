@@ -21,10 +21,15 @@ import CardCarousel from './reusables/CardCarousel';
 import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import { searchEmergencyCasesByStatus, closeEmergencyCase } from '../features/createSlice';
-import { emergencyDetails } from '../features/dashboardSlice';
+import { dashboardLiveData, emergencyDetails } from '../features/dashboardSlice';
 import Swal from 'sweetalert2';
 import { triggerAgentCall } from '../utils/callAgent';
 import { Logo2 } from '../assets';
+import {
+  formatIncidentDateTimeLabel,
+  formatLocalDateTime,
+  isIncidentClosedRecord,
+} from '../utils/incidentUtils';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY';
 
@@ -40,11 +45,6 @@ const severityStyles = {
   Fatal: { color: '#FE5B65' },
   'Non-Fatal': { color: '#2E3192' },
 };
-
-const isIncidentClosedRecord = (incident) =>
-  incident?.closed_status === 1 ||
-  incident?.closed_status === '1' ||
-  String(incident?.incident_status || '').toLowerCase() === 'closed';
 
 const getStoredToken = () => {
   const tokenItem = localStorage.getItem('item');
@@ -100,14 +100,6 @@ const buildGoogleEmbedMapUrl = (lat, lng) => {
   return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}&z=15&output=embed`;
 };
 
-const formatDateTimeLabel = (row) => {
-  if (row?.date_time) {
-    return row.date_time;
-  }
-
-  return [row?.date, row?.time].filter(Boolean).join(' | ') || 'N/A';
-};
-
 const buildCardChartData = (card) => {
   const total = toMetricNumber(card?.value);
   const today = Math.max(toMetricNumber(card?.today), 0);
@@ -124,6 +116,8 @@ const statusFilterOptions = [
 ];
 
 const controlHeight = '48px';
+const EMERGENCY_REFRESH_INTERVAL_MS = 15000;
+const EMERGENCY_RATE_LIMIT_RETRY_MS = 180000;
 
 const Emergencies = () => {
   const dispatch = useDispatch();
@@ -142,16 +136,63 @@ const Emergencies = () => {
       return;
     }
 
-    const request = dispatch(
-      searchEmergencyCasesByStatus({
-        token,
-        status: statusFilter,
-        page: currentPage,
-      })
-    );
+    let timeoutId;
+    let isDisposed = false;
+    let activeRequest;
+    let isRequestInFlight = false;
+
+    const scheduleNextRefresh = (delay) => {
+      if (isDisposed) {
+        return;
+      }
+
+      timeoutId = window.setTimeout(fetchEmergencyCases, delay);
+    };
+
+    const fetchEmergencyCases = async () => {
+      if (isRequestInFlight) {
+        return;
+      }
+
+      isRequestInFlight = true;
+      activeRequest = dispatch(
+        searchEmergencyCasesByStatus({
+          token,
+          status: statusFilter,
+          page: currentPage,
+        })
+      );
+
+      try {
+        await activeRequest.unwrap();
+        scheduleNextRefresh(EMERGENCY_REFRESH_INTERVAL_MS);
+      } catch (fetchError) {
+        if (fetchError?.name === 'AbortError') {
+          return;
+        }
+
+        console.error('Emergency refresh failed:', fetchError);
+        const errorMessage =
+          typeof fetchError === 'string'
+            ? fetchError
+            : fetchError?.message || '';
+        const retryDelay = /too many/i.test(errorMessage)
+          ? EMERGENCY_RATE_LIMIT_RETRY_MS
+          : EMERGENCY_REFRESH_INTERVAL_MS;
+
+        scheduleNextRefresh(retryDelay);
+      } finally {
+        activeRequest = null;
+        isRequestInFlight = false;
+      }
+    };
+
+    fetchEmergencyCases();
 
     return () => {
-      request.abort();
+      isDisposed = true;
+      activeRequest?.abort();
+      window.clearTimeout(timeoutId);
     };
   }, [currentPage, dispatch, statusFilter, token]);
 
@@ -407,6 +448,7 @@ const Emergencies = () => {
             page: currentPage,
           })
         ).unwrap(),
+        dispatch(dashboardLiveData({ token })).unwrap(),
       ]);
     } catch (closeError) {
       console.error('Close case failed:', closeError);
@@ -463,10 +505,10 @@ const Emergencies = () => {
           row?.priority || 'N/A',
           row?.actions?.call_number || row?.assigned_phone || 'N/A',
           row?.incident_status || 'N/A',
-          formatDateTimeLabel(row),
+          formatIncidentDateTimeLabel(row),
           row?.nature_of_request || 'N/A',
           row?.assignment_source || 'N/A',
-          row?.assigned_at || 'N/A',
+          formatLocalDateTime(row?.assigned_at),
           row?.latitude || 'N/A',
           row?.longitude || 'N/A',
         ])
@@ -702,7 +744,7 @@ const Emergencies = () => {
           <div className="text-right">
             <h4 className="mb-1">Emergency: {detailIncident.emergency_id}</h4>
             <small style={{ color: '#707A8F' }}>
-              {formatDateTimeLabel(detailIncident)}
+              {formatIncidentDateTimeLabel(detailIncident)}
             </small>
           </div>
         </div>
@@ -797,7 +839,7 @@ const Emergencies = () => {
                         Assignment Source:<span className='stx ml-2'>{detailIncident.assignment_source || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
-                        Assigned At:<span className='stx ml-2'>{detailIncident.assigned_at || rawIncident.created_at || 'N/A'}</span>
+                        Assigned At:<span className='stx ml-2'>{formatLocalDateTime(detailIncident.assigned_at || rawIncident.created_at)}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Distance: <span className='stx ml-2'>{detailIncident.assignment_distance_km || '0.00'} km</span>
@@ -879,7 +921,7 @@ const Emergencies = () => {
                         Crash Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
-                        Created At: <span className='stx ml-2'>{rawIncident.created_at || detailIncident.assigned_at || 'N/A'}</span>
+                        Created At: <span className='stx ml-2'>{formatLocalDateTime(rawIncident.created_at || detailIncident.assigned_at)}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Closed Status: <span className='stx ml-2'>{closedStatusLabel}</span>

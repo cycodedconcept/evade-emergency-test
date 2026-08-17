@@ -23,7 +23,11 @@ import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import CardCarousel from './reusables/CardCarousel';
 import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
-import { dashboardData, emergencyDetails } from '../features/dashboardSlice';
+import {
+  dashboardData,
+  dashboardLiveData,
+  emergencyDetails,
+} from '../features/dashboardSlice';
 import { closeEmergencyCase } from '../features/createSlice';
 import { getResponderAgents } from '../features/responderSlice';
 import Swal from 'sweetalert2';
@@ -33,6 +37,12 @@ import {
   War,
   Logo2,
 } from '../assets';
+import {
+  formatIncidentDateTimeLabel,
+  formatLocalDateTime,
+  getIncidentTimestampMs,
+  isIncidentClosedRecord,
+} from '../utils/incidentUtils';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyC2CKttNS1QGg-S0xkbWhYoA08OHuBWzmY';
 
@@ -84,24 +94,20 @@ const buildGoogleEmbedMapUrl = (lat, lng) => {
   return `https://www.google.com/maps?q=${coordinates.lat},${coordinates.lng}&z=15&output=embed`;
 };
 
-const parseDateTime = (row) => {
-  if (row?.date_time) {
-    const parsed = new Date(row.date_time).getTime();
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
+const buildIncidentAlertSignature = (incident) => {
+  if (!incident) {
+    return '';
   }
 
-  const fallback = new Date(`${row?.date || ''} ${row?.time || ''}`).getTime();
-  return Number.isNaN(fallback) ? 0 : fallback;
-};
-
-const formatDateTimeLabel = (row) => {
-  if (row?.date_time) {
-    return row.date_time;
-  }
-
-  return [row?.date, row?.time].filter(Boolean).join(' | ') || 'N/A';
+  return [
+    incident.id ?? '',
+    incident.emergency_id ?? '',
+    incident.date_time ?? '',
+    incident.date ?? '',
+    incident.time ?? '',
+    incident.created_at ?? '',
+    incident.updated_at ?? '',
+  ].join('|');
 };
 
 const toMetricNumber = (value) => {
@@ -135,12 +141,7 @@ const severityStyles = {
   'Non-Fatal': { color: '#2E3192' },
 };
 
-const isIncidentClosedRecord = (incident) =>
-  incident?.closed_status === 1 ||
-  incident?.closed_status === '1' ||
-  String(incident?.incident_status || '').toLowerCase() === 'closed';
-
-const DASHBOARD_REFRESH_INTERVAL_MS = 60000;
+const DASHBOARD_REFRESH_INTERVAL_MS = 15000;
 const DASHBOARD_RATE_LIMIT_RETRY_MS = 180000;
 
 const Card = forwardRef((props, ref) => {
@@ -162,6 +163,7 @@ const Card = forwardRef((props, ref) => {
   const [callingIncidentId, setCallingIncidentId] = useState(null);
   const emergenciesTableRef = useRef(null);
   const dashboardRequestInFlightRef = useRef(false);
+  const dismissedAlertSignatureRef = useRef('');
 
   useImperativeHandle(ref, () => ({
     scrollToTable: () => {
@@ -313,14 +315,24 @@ const Card = forwardRef((props, ref) => {
   const latestIncident = useMemo(() => {
     if (!tableRows.length) return null;
 
-    return [...tableRows].sort((a, b) => parseDateTime(b) - parseDateTime(a))[0];
+    return [...tableRows].sort(
+      (a, b) => getIncidentTimestampMs(b) - getIncidentTimestampMs(a)
+    )[0];
   }, [tableRows]);
 
+  const latestIncidentAlertSignature = useMemo(
+    () => buildIncidentAlertSignature(latestIncident),
+    [latestIncident]
+  );
+
   useEffect(() => {
-    if (latestIncident) {
+    if (
+      latestIncidentAlertSignature &&
+      latestIncidentAlertSignature !== dismissedAlertSignatureRef.current
+    ) {
       setShowMainAlert(true);
     }
-  }, [latestIncident?.id]);
+  }, [latestIncidentAlertSignature]);
 
   useEffect(() => {
     if (!selectedIncident?.id) return;
@@ -590,6 +602,7 @@ const Card = forwardRef((props, ref) => {
       await Promise.all([
         dispatch(emergencyDetails({ token, id: incident.id })).unwrap(),
         dispatch(dashboardData({ token, page: currentPage })).unwrap(),
+        dispatch(dashboardLiveData({ token })).unwrap(),
       ]);
     } catch (closeError) {
       console.error('Close case failed:', closeError);
@@ -681,7 +694,7 @@ const Card = forwardRef((props, ref) => {
                     <FontAwesomeIcon icon={faCalendar} />
                   </small>
                   <small style={{ color: '#707A8F', marginRight: '15px' }}>
-                    Date/Time: {formatDateTimeLabel(latestIncident)}
+                    Date/Time: {formatIncidentDateTimeLabel(latestIncident)}
                   </small>
                   <small style={{ color: '#707A8F', marginRight: '5px' }}>
                     <FontAwesomeIcon icon={faCarCrash} />
@@ -704,7 +717,10 @@ const Card = forwardRef((props, ref) => {
               </p>
             </div>
             <button
-              onClick={() => setShowMainAlert(false)}
+              onClick={() => {
+                dismissedAlertSignatureRef.current = latestIncidentAlertSignature;
+                setShowMainAlert(false);
+              }}
               style={{
                 position: 'absolute',
                 top: '10px',
@@ -866,7 +882,7 @@ const Card = forwardRef((props, ref) => {
           <div className="text-right">
             <h4 className="mb-1">Emergency: {detailIncident.emergency_id}</h4>
             <small style={{ color: '#707A8F' }}>
-              {formatDateTimeLabel(detailIncident)}
+              {formatIncidentDateTimeLabel(detailIncident)}
             </small>
           </div>
         </div>
@@ -961,7 +977,7 @@ const Card = forwardRef((props, ref) => {
                         Assignment Source:<span className='stx ml-2'>{detailIncident.assignment_source || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
-                        Assigned At:<span className='stx ml-2'>{detailIncident.assigned_at || rawIncident.created_at || 'N/A'}</span>
+                        Assigned At:<span className='stx ml-2'>{formatLocalDateTime(detailIncident.assigned_at || rawIncident.created_at)}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Distance: <span className='stx ml-2'>{detailIncident.assignment_distance_km || '0.00'} km</span>
@@ -1043,7 +1059,7 @@ const Card = forwardRef((props, ref) => {
                         Crash Type: <span className='stx ml-2'>{detailIncident.raw_type || rawIncident.accident_type || 'N/A'}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
-                        Created At: <span className='stx ml-2'>{rawIncident.created_at || detailIncident.assigned_at || 'N/A'}</span>
+                        Created At: <span className='stx ml-2'>{formatLocalDateTime(rawIncident.created_at || detailIncident.assigned_at)}</span>
                       </h6>
                       <h6 style={{ color: '#707A8F' }} className='ad'>
                         Closed Status: <span className='stx ml-2'>{closedStatusLabel}</span>
