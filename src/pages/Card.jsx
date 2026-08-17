@@ -25,7 +25,6 @@ import Table from './reusables/Table';
 import Pagination from './reusables/Pagination';
 import {
   dashboardData,
-  dashboardLiveData,
   emergencyDetails,
 } from '../features/dashboardSlice';
 import { closeEmergencyCase } from '../features/createSlice';
@@ -602,7 +601,6 @@ const Card = forwardRef((props, ref) => {
       await Promise.all([
         dispatch(emergencyDetails({ token, id: incident.id })).unwrap(),
         dispatch(dashboardData({ token, page: currentPage })).unwrap(),
-        dispatch(dashboardLiveData({ token })).unwrap(),
       ]);
     } catch (closeError) {
       console.error('Close case failed:', closeError);

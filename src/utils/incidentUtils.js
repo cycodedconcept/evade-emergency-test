@@ -135,13 +135,17 @@ export const buildIncidentNotificationSignature = (incident) => {
     return '';
   }
 
-  return [
-    incident.id ?? '',
-    incident.emergency_id ?? '',
-    incident.device_number ?? incident.deviceid ?? '',
-    incident.created_at ?? '',
-    incident.date_time ?? '',
-    incident.date ?? '',
-    incident.time ?? '',
-  ].join('|');
+  const stableIncidentId =
+    incident.id ??
+    incident.incident_id ??
+    incident.emergency_id ??
+    incident.device_number ??
+    incident.deviceid ??
+    '';
+  const createdMarker =
+    incident.created_at ??
+    incident.date_time ??
+    [incident.date ?? '', incident.time ?? ''].filter(Boolean).join(' ');
+
+  return [stableIncidentId, createdMarker].join('|');
 };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildIncidentNotificationSignature,
   formatIncidentDateTimeLabel,
   formatLocalDateTime,
   getOpenDashboardNotificationRows,
@@ -38,5 +39,25 @@ describe('incidentUtils', () => {
     });
 
     expect(rows.map((row) => row.id)).toEqual([1, 3]);
+  });
+
+  it('keeps the notification signature stable across non-new status updates', () => {
+    const originalSignature = buildIncidentNotificationSignature({
+      id: 11,
+      emergency_id: 'EM-011',
+      device_number: 'DEV-011',
+      created_at: '2026-08-17 10:00:00',
+      incident_status: 'active',
+    });
+    const refreshedSignature = buildIncidentNotificationSignature({
+      id: 11,
+      emergency_id: 'EM-011',
+      device_number: 'DEV-011',
+      created_at: '2026-08-17 10:00:00',
+      incident_status: 'resolved',
+      updated_at: '2026-08-17 10:05:00',
+    });
+
+    expect(refreshedSignature).toBe(originalSignature);
   });
 });
