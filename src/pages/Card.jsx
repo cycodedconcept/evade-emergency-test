@@ -599,6 +599,7 @@ const Card = forwardRef(({ onAcknowledgeIncident }, ref) => {
     try {
       setClosingCaseId(incident.id);
       await dispatch(closeEmergencyCase({ token, id: incident.id })).unwrap();
+      onAcknowledgeIncident?.(incident);
       await Promise.all([
         dispatch(emergencyDetails({ token, id: incident.id })).unwrap(),
         dispatch(dashboardData({ token, page: currentPage })).unwrap(),

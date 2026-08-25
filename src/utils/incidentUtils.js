@@ -135,17 +135,21 @@ export const buildIncidentNotificationSignature = (incident) => {
     return '';
   }
 
-  const stableIncidentId =
-    incident.id ??
-    incident.incident_id ??
-    incident.emergency_id ??
-    incident.device_number ??
-    incident.deviceid ??
-    '';
-  const createdMarker =
+  const stableIncidentId = [
+    incident.id,
+    incident.incident_id,
+    incident.emergency_id,
+    incident.device_number,
+    incident.deviceid,
+  ].find((value) => value !== undefined && value !== null && String(value).trim());
+
+  if (stableIncidentId !== undefined) {
+    return String(stableIncidentId).trim();
+  }
+
+  return (
     incident.created_at ??
     incident.date_time ??
-    [incident.date ?? '', incident.time ?? ''].filter(Boolean).join(' ');
-
-  return [stableIncidentId, createdMarker].join('|');
+    [incident.date ?? '', incident.time ?? ''].filter(Boolean).join(' ')
+  );
 };

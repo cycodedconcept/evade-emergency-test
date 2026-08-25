@@ -440,6 +440,7 @@ const Emergencies = ({ onAcknowledgeIncident }) => {
     try {
       setClosingCaseId(incident.id);
       await dispatch(closeEmergencyCase({ token, id: incident.id })).unwrap();
+      onAcknowledgeIncident?.(incident);
       await Promise.all([
         dispatch(emergencyDetails({ token, id: incident.id })).unwrap(),
         dispatch(

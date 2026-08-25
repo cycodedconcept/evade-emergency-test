@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -110,6 +111,8 @@ vi.mock('../pages/Subscriptions', () => ({
   default: () => <div>Subscriptions Page</div>,
 }));
 
+let dashboardState;
+
 describe('Dashboard notification details modal', () => {
   beforeEach(() => {
     localStorage.setItem('item', JSON.stringify('test-token'));
@@ -132,30 +135,29 @@ describe('Dashboard notification details modal', () => {
       unwrap: vi.fn().mockResolvedValue({}),
     }));
 
-    useSelectorMock.mockImplementation((selector) =>
-      selector({
-        dashboard: {
-          dataItem: {
-            company: {
-              company_name: 'Evade Rescue',
-            },
-            notifications: [
-              {
-                id: 1,
-                emergency_id: 'EM-001',
-                device_number: 'DEV-1001',
-                type: 'Crash',
-                severity: 'Fatal',
-                incident_status: 'Active',
-                nature_of_request: 'Major crash',
-                date_time: '2026-08-17 10:00:00',
-              },
-            ],
+    dashboardState = {
+      dashboard: {
+        dataItem: {
+          company: {
+            company_name: 'Evade Rescue',
           },
-          liveDataItem: {},
+          notifications: [
+            {
+              id: 1,
+              emergency_id: 'EM-001',
+              device_number: 'DEV-1001',
+              type: 'Crash',
+              severity: 'Fatal',
+              incident_status: 'Active',
+              nature_of_request: 'Major crash',
+              date_time: '2026-08-17 10:00:00',
+            },
+          ],
         },
-      })
-    );
+        liveDataItem: {},
+      },
+    };
+    useSelectorMock.mockImplementation((selector) => selector(dashboardState));
 
     axios.get.mockResolvedValue({
       data: {
@@ -187,6 +189,7 @@ describe('Dashboard notification details modal', () => {
   afterEach(() => {
     cleanup();
     localStorage.clear();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -240,5 +243,87 @@ describe('Dashboard notification details modal', () => {
 
     expect(screen.getByText(/alert sounds blocked/i)).toBeInTheDocument();
     expect(screen.getByText(/click anywhere to enable alert sounds/i)).toBeInTheDocument();
+  });
+
+  it('keeps the high-priority safety timeout anchored to the incident signature', () => {
+    vi.useFakeTimers();
+    getAlertSoundStateMock.mockReturnValue({
+      unlocked: true,
+      muted: false,
+      volume: 1,
+    });
+    dashboardState = {
+      dashboard: {
+        dataItem: {
+          company: {
+            company_name: 'Evade Rescue',
+          },
+          notifications: [
+            {
+              id: 77,
+              emergency_id: 'EM-077',
+              device_number: 'DEV-1077',
+              type: 'Crash',
+              priority: 'HIGH',
+              incident_status: 'Active',
+              nature_of_request: 'High priority crash',
+              date_time: '2026-08-17 10:00:00',
+            },
+          ],
+        },
+        liveDataItem: {},
+      },
+    };
+
+    const view = render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(15000);
+    });
+
+    dashboardState = {
+      dashboard: {
+        dataItem: {
+          company: {
+            company_name: 'Evade Rescue',
+          },
+          notifications: [
+            {
+              id: 77,
+              emergency_id: 'EM-077',
+              device_number: 'DEV-1077',
+              type: 'Crash',
+              priority: 'HIGH',
+              incident_status: 'Active',
+              nature_of_request: 'High priority crash',
+              created_at: '2026-08-17 10:00:00',
+              updated_at: '2026-08-17 10:15:00',
+            },
+          ],
+        },
+        liveDataItem: {},
+      },
+    };
+    view.rerender(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(44999);
+    });
+
+    expect(stopAlertMock).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+
+    expect(stopAlertMock).toHaveBeenCalledTimes(1);
   });
 });

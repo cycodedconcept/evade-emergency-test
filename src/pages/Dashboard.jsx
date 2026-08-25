@@ -289,6 +289,10 @@ const Dashboard = () => {
   );
   const activeHighPriorityNotification =
     unacknowledgedHighPriorityNotifications[0] || null;
+  const activeHighPriorityNotificationSignature = useMemo(
+    () => buildIncidentNotificationSignature(activeHighPriorityNotification),
+    [activeHighPriorityNotification]
+  );
   const dashboardCompanyName =
     dataItem?.company?.company_name ||
     liveDataItem?.company?.company_name ||
@@ -431,9 +435,7 @@ const Dashboard = () => {
   ]);
 
   useEffect(() => {
-    const activeSignature = activeHighPriorityNotification
-      ? buildIncidentNotificationSignature(activeHighPriorityNotification)
-      : '';
+    const activeSignature = activeHighPriorityNotificationSignature;
 
     if (!activeSignature) {
       if (previousHighPrioritySignatureRef.current) {
@@ -453,7 +455,7 @@ const Dashboard = () => {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [activeHighPriorityNotification]);
+  }, [activeHighPriorityNotificationSignature]);
 
   useEffect(() => {
     if (typeof document === 'undefined') {

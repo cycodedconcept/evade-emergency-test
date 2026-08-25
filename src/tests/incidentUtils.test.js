@@ -60,4 +60,22 @@ describe('incidentUtils', () => {
 
     expect(refreshedSignature).toBe(originalSignature);
   });
+
+  it('keeps the notification signature stable when the same incident is refreshed with a different timestamp field', () => {
+    const originalSignature = buildIncidentNotificationSignature({
+      id: 27,
+      emergency_id: 'EM-027',
+      device_number: 'DEV-027',
+      date_time: '2026-08-17 10:00:00',
+    });
+    const refreshedSignature = buildIncidentNotificationSignature({
+      id: 27,
+      emergency_id: 'EM-027',
+      device_number: 'DEV-027',
+      created_at: '2026-08-17 10:00:00',
+      updated_at: '2026-08-17 10:05:00',
+    });
+
+    expect(refreshedSignature).toBe(originalSignature);
+  });
 });
