@@ -119,7 +119,7 @@ const controlHeight = '48px';
 const EMERGENCY_REFRESH_INTERVAL_MS = 15000;
 const EMERGENCY_RATE_LIMIT_RETRY_MS = 180000;
 
-const Emergencies = () => {
+const Emergencies = ({ onAcknowledgeIncident }) => {
   const dispatch = useDispatch();
   const token = getStoredToken();
   const { loading, error, emergencySearchResults } = useSelector((state) => state.create);
@@ -354,6 +354,7 @@ const Emergencies = () => {
   );
 
   const handleView = (row) => {
+    onAcknowledgeIncident?.(row);
     setSelectedIncident(row);
 
     if (token && row?.id) {

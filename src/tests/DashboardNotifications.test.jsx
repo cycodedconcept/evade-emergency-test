@@ -9,13 +9,22 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
+import { MemoryRouter } from 'react-router-dom';
 import Dashboard from '../pages/Dashboard';
 
 const {
   dashboardLiveDataMock,
   dispatchMock,
+  getAlertSoundStateMock,
   highlightRowMock,
+  initAlertSoundMock,
+  playAlertMock,
   scrollToTableMock,
+  setAlertMutedMock,
+  setAlertVolumeMock,
+  stopAlertMock,
+  subscribeToAlertSoundChangesMock,
+  unlockAlertSoundMock,
   useSelectorMock,
 } = vi.hoisted(() => ({
   dashboardLiveDataMock: vi.fn((payload) => ({
@@ -23,8 +32,16 @@ const {
     payload,
   })),
   dispatchMock: vi.fn(),
+  getAlertSoundStateMock: vi.fn(),
   highlightRowMock: vi.fn(),
+  initAlertSoundMock: vi.fn(),
+  playAlertMock: vi.fn(),
   scrollToTableMock: vi.fn(),
+  setAlertMutedMock: vi.fn(),
+  setAlertVolumeMock: vi.fn(),
+  stopAlertMock: vi.fn(),
+  subscribeToAlertSoundChangesMock: vi.fn(),
+  unlockAlertSoundMock: vi.fn(),
   useSelectorMock: vi.fn(),
 }));
 
@@ -39,27 +56,38 @@ vi.mock('../features/dashboardSlice', () => ({
   dashboardLiveData: dashboardLiveDataMock,
 }));
 
+vi.mock('../lib/alertSound', () => ({
+  getAlertSoundState: getAlertSoundStateMock,
+  initAlertSound: initAlertSoundMock,
+  playAlert: playAlertMock,
+  setAlertMuted: setAlertMutedMock,
+  setAlertVolume: setAlertVolumeMock,
+  stopAlert: stopAlertMock,
+  subscribeToAlertSoundChanges: subscribeToAlertSoundChangesMock,
+  unlockAlertSound: unlockAlertSoundMock,
+}));
+
 vi.mock('../pages/Sidebar', () => ({
   default: () => <div>Sidebar</div>,
 }));
 
-vi.mock('../pages/Card', async () => {
-  const ReactModule = await import('react');
+vi.mock('../pages/Card', () => ({
+  default: React.forwardRef((_props, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      highlightRow: highlightRowMock,
+      scrollToTable: scrollToTableMock,
+    }));
 
-  return {
-    default: ReactModule.forwardRef((_props, ref) => {
-      ReactModule.useImperativeHandle(ref, () => ({
-        highlightRow: highlightRowMock,
-        scrollToTable: scrollToTableMock,
-      }));
-
-      return <div>Card Page</div>;
-    }),
-  };
-});
+    return <div>Card Page</div>;
+  }),
+}));
 
 vi.mock('../pages/Emergencies', () => ({
   default: () => <div>Emergencies Page</div>,
+}));
+
+vi.mock('../pages/MissedCases', () => ({
+  default: () => <div>Missed Cases Page</div>,
 }));
 
 vi.mock('../pages/Reports', () => ({
@@ -85,6 +113,19 @@ vi.mock('../pages/Subscriptions', () => ({
 describe('Dashboard notification details modal', () => {
   beforeEach(() => {
     localStorage.setItem('item', JSON.stringify('test-token'));
+
+    getAlertSoundStateMock.mockReturnValue({
+      unlocked: false,
+      muted: false,
+      volume: 1,
+    });
+    initAlertSoundMock.mockResolvedValue({});
+    playAlertMock.mockResolvedValue(true);
+    setAlertMutedMock.mockImplementation(() => {});
+    setAlertVolumeMock.mockImplementation(() => {});
+    stopAlertMock.mockImplementation(() => {});
+    subscribeToAlertSoundChangesMock.mockImplementation(() => () => {});
+    unlockAlertSoundMock.mockResolvedValue(true);
 
     dispatchMock.mockImplementation(() => ({
       abort: vi.fn(),
@@ -150,7 +191,11 @@ describe('Dashboard notification details modal', () => {
   });
 
   it('opens the emergency details modal when a notification is selected', async () => {
-    render(<Dashboard />);
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
 
     fireEvent.click(screen.getByText('1'));
     fireEvent.click(screen.getByText('EM-001'));
@@ -175,10 +220,25 @@ describe('Dashboard notification details modal', () => {
   });
 
   it('treats the badge count as part of the clickable notification target', () => {
-    render(<Dashboard />);
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
 
     fireEvent.click(screen.getByText('1'));
 
     expect(screen.getByText('Notifications')).toBeInTheDocument();
+  });
+
+  it('shows the blocked sound banner before audio has been unlocked', () => {
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/alert sounds blocked/i)).toBeInTheDocument();
+    expect(screen.getByText(/click anywhere to enable alert sounds/i)).toBeInTheDocument();
   });
 });

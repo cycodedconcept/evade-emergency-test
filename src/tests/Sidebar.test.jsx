@@ -39,8 +39,17 @@ describe('Sidebar mobile navigation', () => {
           dataItem: {
             details: {
               name: 'Test User',
+              user_type: 'responder_company',
             },
           },
+        },
+        dashboard: {
+          dataItem: {
+            user_type: 'responder_company',
+          },
+        },
+        responder: {
+          responderProfile: {},
         },
       })
     );
@@ -82,5 +91,19 @@ describe('Sidebar mobile navigation', () => {
 
     expect(setActiveMenu).toHaveBeenCalledWith('Reports & Analysis');
     expect(drawer).toHaveStyle({ width: '250px' });
+  });
+
+  it('shows the missed cases menu item for responder companies', () => {
+    setViewportWidth(1280);
+
+    const setActiveMenu = vi.fn();
+
+    render(<Sidebar activeMenu="Dashboard" setActiveMenu={setActiveMenu} />);
+
+    expect(screen.getByText('Missed Cases')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Missed Cases'));
+
+    expect(setActiveMenu).toHaveBeenCalledWith('Missed Cases');
   });
 });

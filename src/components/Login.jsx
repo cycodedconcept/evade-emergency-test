@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { loginUser } from '../features/userSlice';
 import { responderAgentLogin } from '../features/responderSlice';
 import Swal from 'sweetalert2';
+import { initAlertSound, unlockAlertSound } from '../lib/alertSound';
 
 
 const Login = () => {
@@ -44,6 +45,9 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    initAlertSound();
+    unlockAlertSound();
 
     if (isAdminLogin && (!email || !password || !licenseKey)) {
       Swal.fire({

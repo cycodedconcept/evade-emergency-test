@@ -43,4 +43,12 @@ describe('Display routing', () => {
 
     expect(screen.getByText('Dashboard Page')).toBeInTheDocument();
   });
+
+  it('renders the dashboard shell on the missed cases route', () => {
+    window.history.pushState({}, '', '/missed-cases');
+
+    render(<Display />);
+
+    expect(screen.getByText('Dashboard Page')).toBeInTheDocument();
+  });
 });

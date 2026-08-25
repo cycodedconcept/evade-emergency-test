@@ -10,7 +10,10 @@ const Table = ({
     onCall,
     onMap,
     onDelete,
-    actionIcons = ['phone', 'eye', 'pencil']
+    actionIcons = ['phone', 'eye', 'pencil'],
+    emptyState = null,
+    getRowKey,
+    showSelectionColumn = true,
 }) => {
     const [selectedRows, setSelectedRows] = useState([]);
     const [showScrollHint, setShowScrollHint] = useState(false);
@@ -90,8 +93,13 @@ const Table = ({
 
     // Check if data is available
     if (!data || !Array.isArray(data) || data.length === 0) {
-        return <div className='text-center text-muted'>No data available</div>;
+        return emptyState || <div className='text-center text-muted'>No data available</div>;
     }
+
+    const hasSelectionColumn =
+        showSelectionColumn &&
+        Array.isArray(columns) &&
+        columns[0]?.accessor === 'select';
 
     const scrollIndicatorStyle = {
         position: 'absolute',
@@ -148,10 +156,14 @@ const Table = ({
                     </thead>
                     <tbody>
                         {data.map((row, rowIndex) => (
-                                <tr key={rowIndex} onClick={() => onRowClick && onRowClick(row)} style={{cursor: 'pointer'}}>
+                                <tr
+                                  key={getRowKey ? getRowKey(row, rowIndex) : row?.id ?? rowIndex}
+                                  onClick={() => onRowClick && !row?.disableRowClick && onRowClick(row)}
+                                  style={{cursor: onRowClick && !row?.disableRowClick ? 'pointer' : 'default'}}
+                                >
                                 {columns.map((col, colIndex) => {
                                     // For the index column (first column)
-                                    if (colIndex === 0) {
+                                    if (hasSelectionColumn && col.accessor === 'select') {
                                         return (
                                             <td key={colIndex}>
                                                 <input 
@@ -166,6 +178,14 @@ const Table = ({
                                                         );
                                                     }}
                                                 />
+                                            </td>
+                                        );
+                                    }
+
+                                    if (typeof col.render === 'function') {
+                                        return (
+                                            <td key={colIndex}>
+                                                {col.render(row, rowIndex)}
                                             </td>
                                         );
                                     }

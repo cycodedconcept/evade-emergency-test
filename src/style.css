@@ -292,6 +292,10 @@ label {
     border-radius: 15px;
 }
 
+.alert-sound-icon:hover {
+    color: #fff !important;
+}
+
 .dash-cards {
     display: grid;
     grid-template-columns: repeat(4, 1fr);

@@ -1,28 +1,40 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
-import { Al, Al2, Ch, Ch2, Help, Help2, La, La2, Logo2, Bel, Bel2 } from '../assets';
+import { Logo2 } from '../assets';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBars, faTimes, faUser, faUserShield } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faTimes, faUser } from '@fortawesome/free-solid-svg-icons';
 import { BsThreeDotsVertical, BsPencil, BsLock, BsBoxArrowRight } from "react-icons/bs";
+import { dashboardMenuItems, helpCenterItem } from '../config/dashboardMenu';
 
 
 const Sidebar = ({ activeMenu, setActiveMenu }) => {
     const { dataItem, message } = useSelector((state) => state.user);
+    const dashboardUserType = useSelector((state) => state.dashboard?.dataItem?.user_type || '');
+    const responderProfileUserType = useSelector(
+      (state) => state.responder?.responderProfile?.user_type || ''
+    );
     const [isOpen, setIsOpen] = useState(true);
     const [showPopup, setShowPopup] = useState(false);
     const userDetails = dataItem?.details || message?.details || {};
-    
-    const menuItems = [
-        { name: 'Dashboard', icon: La, activeIcon: La2 },
-        { name: 'Emergencies', icon: Al, activeIcon: Al2 },
-        { name: 'Reports & Analysis', icon: Ch, activeIcon: Ch2 },
-        { name: 'Responders', iconComponent: faUserShield, activeIconComponent: faUserShield },
-        // { name: 'Subscription & Billing', icon: Bel2, activeIcon: Bel },
-        // { name: 'Role/User Management', icon: Bel2, activeIcon: Bel}
-        // { name: 'API Access', icon: Bel2, activeIcon: Bel}
-    ];
+    const currentUserType =
+      dashboardUserType ||
+      responderProfileUserType ||
+      message?.user_type ||
+      message?.details?.user_type ||
+      dataItem?.user_type ||
+      dataItem?.details?.user_type ||
+      '';
+    const menuItems = dashboardMenuItems.filter((item) => {
+        if (!item.allowedUserTypes?.length) {
+            return true;
+        }
 
-    const helpCenterItem = { name: 'Help Center', icon: Help2, activeIcon: Help };
+        if (!currentUserType) {
+            return true;
+        }
+
+        return item.allowedUserTypes.includes(currentUserType);
+    });
 
     const toggleSidebar = () => {
         setIsOpen(!isOpen);

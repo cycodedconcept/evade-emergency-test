@@ -143,7 +143,7 @@ const severityStyles = {
 const DASHBOARD_REFRESH_INTERVAL_MS = 15000;
 const DASHBOARD_RATE_LIMIT_RETRY_MS = 180000;
 
-const Card = forwardRef((props, ref) => {
+const Card = forwardRef(({ onAcknowledgeIncident }, ref) => {
   const dispatch = useDispatch();
   const token = getStoredToken();
   const {
@@ -512,6 +512,7 @@ const Card = forwardRef((props, ref) => {
   );
 
   const handleView = (row) => {
+    onAcknowledgeIncident?.(row);
     setSelectedIncident(row);
     setShowMainAlert(false);
 

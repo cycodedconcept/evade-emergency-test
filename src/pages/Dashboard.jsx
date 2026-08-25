@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell } from '@fortawesome/free-regular-svg-icons';
 import Sidebar from './Sidebar';
 import Card from './Card';
 import Emergencies from './Emergencies';
+import MissedCases from './MissedCases';
 import Reports from './Reports';
 import Notifications from './Notifications';
 import Responders from './Responders';
@@ -13,15 +15,35 @@ import HelpCenter from './helpCenter';
 import Subscriptions from './Subscriptions';
 import { dashboardLiveData } from '../features/dashboardSlice';
 import EmergencyDetailsModal from '../components/EmergencyDetailsModal';
+import AlertSoundControl from '../components/AlertSoundControl';
+import HighPriorityAlertBanner from '../components/HighPriorityAlertBanner';
 import { API_URL } from '../config/constant';
 import {
   buildIncidentNotificationSignature,
   formatIncidentDateTimeLabel,
+  getIncidentTimestampMs,
   getOpenDashboardNotificationRows,
 } from '../utils/incidentUtils';
+import {
+  getDashboardMenuNameFromLocation,
+  getDashboardMenuNavigationTarget,
+} from '../config/dashboardMenu';
+import {
+  getAlertSoundState,
+  initAlertSound,
+  isAlertSoundUnlocked,
+  playAlert,
+  setAlertMuted,
+  setAlertVolume,
+  stopAlert,
+  subscribeToAlertSoundChanges,
+  unlockAlertSound,
+} from '../lib/alertSound';
 
 const DASHBOARD_LIVE_REFRESH_INTERVAL_MS = 15000;
 const DASHBOARD_RATE_LIMIT_RETRY_MS = 180000;
+const ALERT_SOUND_DEBOUNCE_MS = 2000;
+const HIGH_PRIORITY_ALERT_TIMEOUT_MS = 60000;
 
 const getStoredToken = () => {
   const tokenItem = localStorage.getItem('item');
@@ -37,44 +59,39 @@ const getStoredToken = () => {
   }
 };
 
-const getBrowserAudioContext = () => {
-  if (typeof window === 'undefined') {
-    return null;
+const getBrowserNotificationPermission = () => {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return 'unsupported';
   }
 
-  return window.AudioContext || window.webkitAudioContext || null;
+  return window.Notification.permission;
 };
 
-const playNotificationChime = (audioContext, startOffset = 0) => {
-  const triggerTone = (frequency, extraOffset, duration, peakGain) => {
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    const startTime = audioContext.currentTime + startOffset + extraOffset;
+const isHighPriorityIncident = (incident) =>
+  String(incident?.priority || '').toUpperCase() === 'HIGH';
 
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, startTime);
-
-    gainNode.gain.setValueAtTime(0.0001, startTime);
-    gainNode.gain.exponentialRampToValueAtTime(peakGain, startTime + 0.02);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.start(startTime);
-    oscillator.stop(startTime + duration + 0.03);
-  };
-
-  triggerTone(880, 0, 0.18, 0.045);
-  triggerTone(1046.5, 0.24, 0.22, 0.04);
-};
+const sortNotificationsByRecency = (leftIncident, rightIncident) =>
+  getIncidentTimestampMs(rightIncident) - getIncidentTimestampMs(leftIncident);
 
 const Dashboard = () => {
   const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
   const token = getStoredToken();
   const { dataItem, liveDataItem } = useSelector((state) => state.dashboard);
-  const [activeMenu, setActiveMenu] = useState('Dashboard');
+  const [activeMenu, setActiveMenu] = useState(() =>
+    getDashboardMenuNameFromLocation(location)
+  );
+  const [showAlertSoundControls, setShowAlertSoundControls] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [alertSoundState, setAlertSoundState] = useState(() =>
+    getAlertSoundState()
+  );
+  const [notificationPermission, setNotificationPermission] = useState(() =>
+    getBrowserNotificationPermission()
+  );
+  const [acknowledgedNotificationSignatures, setAcknowledgedNotificationSignatures] =
+    useState([]);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [notificationEmergency, setNotificationEmergency] = useState(null);
   const [notificationEmergencyLoading, setNotificationEmergencyLoading] =
@@ -85,22 +102,21 @@ const Dashboard = () => {
   const cardRef = useRef(null);
   const notificationRef = useRef(null);
   const notificationEmergencyAbortRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const pendingNotificationSoundCountRef = useRef(0);
   const lastNotificationSignatureSetRef = useRef(new Set());
   const hasSeededNotificationStateRef = useRef(false);
   const notificationSourceKeyRef = useRef('dashboard');
-  const flushNotificationSoundsRef = useRef(async () => {});
-  const shouldShowNotificationIcon =
-    activeMenu === 'Dashboard' || activeMenu === 'Emergencies';
-  const notificationSourceKey =
-    activeMenu === 'Dashboard'
-      ? 'dashboard'
-      : activeMenu === 'Emergencies'
-        ? 'emergencies'
-        : 'hidden';
-  const shouldPollLiveData =
-    Boolean(token) && notificationSourceKey === 'emergencies';
+  const lastAlertPlaybackTimestampRef = useRef(0);
+  const previousHighPrioritySignatureRef = useRef('');
+  const defaultDocumentTitleRef = useRef(
+    typeof document !== 'undefined' ? document.title : 'Evade'
+  );
+  const shouldShowNotificationIcon = Boolean(token);
+  const notificationSourceKey = activeMenu === 'Dashboard' ? 'dashboard' : 'live';
+  const shouldPollLiveData = Boolean(token) && notificationSourceKey === 'live';
+
+  useEffect(() => {
+    setActiveMenu(getDashboardMenuNameFromLocation(location));
+  }, [location.pathname, location.state]);
 
   useEffect(() => {
     if (!shouldPollLiveData) {
@@ -162,71 +178,35 @@ const Dashboard = () => {
   }, [dispatch, shouldPollLiveData, token]);
 
   useEffect(() => {
-    const AudioContextClass = getBrowserAudioContext();
+    initAlertSound().finally(() => {
+      setAlertSoundState(getAlertSoundState());
+    });
 
-    if (!AudioContextClass) {
-      return undefined;
-    }
+    const unsubscribe = subscribeToAlertSoundChanges((nextState) => {
+      setAlertSoundState(nextState);
+    });
 
-    const ensureAudioContext = async () => {
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContextClass();
-      }
-
-      if (audioContextRef.current.state !== 'running') {
-        await audioContextRef.current.resume();
-      }
-
-      return audioContextRef.current;
+    const syncNotificationPermission = () => {
+      setNotificationPermission(getBrowserNotificationPermission());
     };
 
-    const flushPendingNotificationSounds = async () => {
-      if (!pendingNotificationSoundCountRef.current) {
-        return;
-      }
-
-      try {
-        const audioContext = await ensureAudioContext();
-
-        if (!audioContext || audioContext.state !== 'running') {
-          return;
-        }
-
-        const queuedSoundCount = pendingNotificationSoundCountRef.current;
-        pendingNotificationSoundCountRef.current = 0;
-
-        for (let index = 0; index < queuedSoundCount; index += 1) {
-          playNotificationChime(audioContext, index * 0.55);
-        }
-      } catch {
-        // Keep the queued sounds until the browser allows playback.
-      }
-    };
-
-    flushNotificationSoundsRef.current = flushPendingNotificationSounds;
-
-    const handleUserInteraction = () => {
-      flushPendingNotificationSounds();
-    };
-
-    window.addEventListener('pointerdown', handleUserInteraction);
-    window.addEventListener('keydown', handleUserInteraction);
+    window.addEventListener('focus', syncNotificationPermission);
+    document.addEventListener('visibilitychange', syncNotificationPermission);
 
     return () => {
-      window.removeEventListener('pointerdown', handleUserInteraction);
-      window.removeEventListener('keydown', handleUserInteraction);
-
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close().catch(() => {});
-      }
-
-      audioContextRef.current = null;
+      unsubscribe();
+      window.removeEventListener('focus', syncNotificationPermission);
+      document.removeEventListener(
+        'visibilitychange',
+        syncNotificationPermission
+      );
     };
   }, []);
 
   useEffect(() => {
     return () => {
       notificationEmergencyAbortRef.current?.abort();
+      stopAlert();
     };
   }, []);
 
@@ -289,6 +269,26 @@ const Dashboard = () => {
     () => getOpenDashboardNotificationRows(notificationSource),
     [notificationSource]
   );
+  const acknowledgedSignatureSet = useMemo(
+    () => new Set(acknowledgedNotificationSignatures),
+    [acknowledgedNotificationSignatures]
+  );
+  const unacknowledgedHighPriorityNotifications = useMemo(
+    () =>
+      dashboardRows
+        .filter((notification) => {
+          const signature = buildIncidentNotificationSignature(notification);
+          return (
+            signature &&
+            !acknowledgedSignatureSet.has(signature) &&
+            isHighPriorityIncident(notification)
+          );
+        })
+        .sort(sortNotificationsByRecency),
+    [acknowledgedSignatureSet, dashboardRows]
+  );
+  const activeHighPriorityNotification =
+    unacknowledgedHighPriorityNotifications[0] || null;
   const dashboardCompanyName =
     dataItem?.company?.company_name ||
     liveDataItem?.company?.company_name ||
@@ -300,6 +300,72 @@ const Dashboard = () => {
         .filter(Boolean),
     [dashboardRows]
   );
+
+  useEffect(() => {
+    const currentSignatureSet = new Set(notificationSignatures);
+
+    setAcknowledgedNotificationSignatures((currentSignatures) =>
+      currentSignatures.filter((signature) => currentSignatureSet.has(signature))
+    );
+  }, [notificationSignatures]);
+
+  const acknowledgeIncident = (incident) => {
+    const signature = buildIncidentNotificationSignature(incident);
+
+    stopAlert();
+
+    if (!signature) {
+      return;
+    }
+
+    setAcknowledgedNotificationSignatures((currentSignatures) =>
+      currentSignatures.includes(signature)
+        ? currentSignatures
+        : [...currentSignatures, signature]
+    );
+  };
+
+  const showDesktopNotification = (notification, newNotificationCount) => {
+    if (
+      typeof window === 'undefined' ||
+      !('Notification' in window) ||
+      window.Notification.permission !== 'granted'
+    ) {
+      return;
+    }
+
+    const browserNotification = new window.Notification(
+      `${notification?.emergency_id || 'SOS alert'} received`,
+      {
+        body:
+          notification?.type ||
+          notification?.nature_of_request ||
+          'New emergency incident',
+        tag:
+          buildIncidentNotificationSignature(notification) ||
+          notification?.emergency_id ||
+          'evade-alert',
+        renotify: isHighPriorityIncident(notification),
+        requireInteraction: isHighPriorityIncident(notification),
+      }
+    );
+
+    browserNotification.onclick = () => {
+      window.focus();
+      browserNotification.close();
+      handleNotificationClick(notification);
+    };
+
+    if (!isHighPriorityIncident(notification)) {
+      window.setTimeout(() => {
+        browserNotification.close();
+      }, 10000);
+    }
+
+    if (newNotificationCount > 1) {
+      document.title = `(${newNotificationCount}) SOS — Evade`;
+    }
+  };
 
   useEffect(() => {
     if (!hasLoadedNotificationSource) {
@@ -315,26 +381,119 @@ const Dashboard = () => {
     }
 
     const previousSignatureSet = lastNotificationSignatureSetRef.current;
-    const newNotificationCount = notificationSignatures.filter(
-      (signature) => !previousSignatureSet.has(signature)
-    ).length;
+    const newNotifications = dashboardRows
+      .filter((notification) => {
+        const signature = buildIncidentNotificationSignature(notification);
+        return signature && !previousSignatureSet.has(signature);
+      })
+      .sort(sortNotificationsByRecency);
 
     lastNotificationSignatureSetRef.current = currentSignatureSet;
 
-    if (!newNotificationCount) {
+    if (!newNotifications.length) {
       return;
     }
 
-    pendingNotificationSoundCountRef.current += newNotificationCount;
-    flushNotificationSoundsRef.current();
-  }, [hasLoadedNotificationSource, notificationSignatures]);
+    const highlightedNotification =
+      newNotifications.find((notification) => isHighPriorityIncident(notification)) ||
+      newNotifications[0];
+
+    showDesktopNotification(highlightedNotification, newNotifications.length);
+
+    if (!alertSoundState.unlocked || alertSoundState.muted) {
+      return;
+    }
+
+    const now = Date.now();
+    const hasHighPriorityNotification = newNotifications.some((notification) =>
+      isHighPriorityIncident(notification)
+    );
+
+    if (
+      !hasHighPriorityNotification &&
+      now - lastAlertPlaybackTimestampRef.current < ALERT_SOUND_DEBOUNCE_MS
+    ) {
+      return;
+    }
+
+    lastAlertPlaybackTimestampRef.current = now;
+    playAlert({
+      variant: hasHighPriorityNotification ? 'ring' : 'alert',
+      loop: hasHighPriorityNotification,
+      volume: 1,
+    });
+  }, [
+    alertSoundState.muted,
+    alertSoundState.unlocked,
+    dashboardRows,
+    hasLoadedNotificationSource,
+    notificationSignatures,
+  ]);
+
+  useEffect(() => {
+    const activeSignature = activeHighPriorityNotification
+      ? buildIncidentNotificationSignature(activeHighPriorityNotification)
+      : '';
+
+    if (!activeSignature) {
+      if (previousHighPrioritySignatureRef.current) {
+        stopAlert();
+      }
+
+      previousHighPrioritySignatureRef.current = '';
+      return undefined;
+    }
+
+    previousHighPrioritySignatureRef.current = activeSignature;
+
+    const timeoutId = window.setTimeout(() => {
+      stopAlert();
+    }, HIGH_PRIORITY_ALERT_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeHighPriorityNotification]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return undefined;
+    }
+
+    if (!activeHighPriorityNotification) {
+      document.title = defaultDocumentTitleRef.current;
+      return undefined;
+    }
+
+    let showEmergencyTitle = true;
+    const highPriorityCount = unacknowledgedHighPriorityNotifications.length;
+    const flashingTitle = `(${highPriorityCount}) SOS — Evade`;
+
+    document.title = flashingTitle;
+
+    const intervalId = window.setInterval(() => {
+      document.title = showEmergencyTitle
+        ? flashingTitle
+        : defaultDocumentTitleRef.current;
+      showEmergencyTitle = !showEmergencyTitle;
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.title = defaultDocumentTitleRef.current;
+    };
+  }, [activeHighPriorityNotification, unacknowledgedHighPriorityNotifications.length]);
 
   const renderContent = () => {
     switch (activeMenu) {
       case 'Dashboard':
-        return <Card ref={cardRef} />;
+        return (
+          <Card ref={cardRef} onAcknowledgeIncident={acknowledgeIncident} />
+        );
       case 'Emergencies':
-        return <Emergencies />;
+        return <Emergencies onAcknowledgeIncident={acknowledgeIncident} />;
+      case 'Missed Cases':
+        return <MissedCases />;
       case 'Reports & Analysis':
         return <Reports />;
       case 'Notifications':
@@ -401,6 +560,7 @@ const Dashboard = () => {
   };
 
   const handleNotificationClick = (notification) => {
+    acknowledgeIncident(notification);
     setShowNotifications(false);
     setSelectedNotification(notification);
     setNotificationEmergency(null);
@@ -432,9 +592,50 @@ const Dashboard = () => {
       ? notificationSource.company
       : dataItem?.company || liveDataItem?.company || {};
 
+  const handleActiveMenuChange = (nextMenu) => {
+    const nextTarget = getDashboardMenuNavigationTarget(nextMenu);
+
+    setActiveMenu(nextMenu);
+
+    if (nextTarget.state) {
+      navigate(nextTarget.pathname, { state: nextTarget.state });
+      return;
+    }
+
+    navigate(nextTarget.pathname);
+  };
+
+  const handleAlertSoundMuteToggle = () => {
+    setAlertMuted(!alertSoundState.muted);
+  };
+
+  const handleAlertVolumeChange = (nextVolume) => {
+    setAlertVolume(nextVolume);
+  };
+
+  const handleTestAlertSound = async () => {
+    await unlockAlertSound();
+    setAlertSoundState(getAlertSoundState());
+    await playAlert({ variant: 'alert', loop: false, volume: 1 });
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    if (
+      typeof window === 'undefined' ||
+      !('Notification' in window) ||
+      window.Notification.permission !== 'default'
+    ) {
+      setNotificationPermission(getBrowserNotificationPermission());
+      return;
+    }
+
+    const permission = await window.Notification.requestPermission();
+    setNotificationPermission(permission);
+  };
+
   return (
     <>
-      <Sidebar activeMenu={activeMenu} setActiveMenu={setActiveMenu} />
+      <Sidebar activeMenu={activeMenu} setActiveMenu={handleActiveMenuChange} />
       <div className="main-content p-2 p-lg-3">
         <header className="mt-3">
           <div className="d-flex justify-content-between align-items-center flex-wrap px-3">
@@ -451,130 +652,170 @@ const Dashboard = () => {
               <div />
             )}
 
-            {shouldShowNotificationIcon ? (
-              <div ref={notificationRef} style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  aria-label="View emergency notifications"
-                  onClick={() => setShowNotifications((currentValue) => !currentValue)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    padding: 0,
-                    position: 'relative',
-                    width: '40px',
-                    height: '40px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <FontAwesomeIcon
-                    icon={faBell}
-                    style={{
-                      fontSize: '16px',
-                      cursor: 'pointer',
-                      padding: '10px',
-                    }}
-                    className="icon-hover"
-                  />
-                  {dashboardRows.length > 0 ? (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        top: '0',
-                        right: '0',
-                        background: '#FE5B65',
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        minWidth: '20px',
-                        height: '20px',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        borderRadius: '50%',
-                        border: '2px solid white',
-                        padding: '0 4px',
-                        pointerEvents: 'none',
-                      }}
-                    >
-                      {dashboardRows.length}
-                    </span>
-                  ) : null}
-                </button>
+            <div className="d-flex align-items-center" style={{ gap: '8px' }}>
+              <AlertSoundControl
+                isOpen={showAlertSoundControls}
+                unlocked={alertSoundState.unlocked}
+                muted={alertSoundState.muted}
+                volume={alertSoundState.volume}
+                notificationPermission={notificationPermission}
+                onToggleOpen={() =>
+                  setShowAlertSoundControls((currentValue) => !currentValue)
+                }
+                onClose={() => setShowAlertSoundControls(false)}
+                onToggleMute={handleAlertSoundMuteToggle}
+                onVolumeChange={handleAlertVolumeChange}
+                onTestSound={handleTestAlertSound}
+                onRequestNotificationPermission={handleRequestNotificationPermission}
+              />
 
-                {showNotifications ? (
-                  <div
+              {shouldShowNotificationIcon ? (
+                <div ref={notificationRef} style={{ position: 'relative' }}>
+                  <button
+                    type="button"
+                    aria-label="View emergency notifications"
+                    onClick={() => setShowNotifications((currentValue) => !currentValue)}
                     style={{
-                      position: 'absolute',
-                      top: '35px',
-                      right: '0',
-                      width: '250px',
-                      maxHeight: '400px',
-                      overflowY: 'auto',
-                      background: 'white',
-                      borderRadius: '10px',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                      zIndex: '1000',
-                      padding: '5px',
+                      border: 'none',
+                      background: 'transparent',
+                      padding: 0,
+                      position: 'relative',
+                      width: '40px',
+                      height: '40px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    <h6
+                    <FontAwesomeIcon
+                      icon={faBell}
                       style={{
-                        marginBottom: '10px',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        padding: '10px',
+                      }}
+                      className="icon-hover"
+                    />
+                    {dashboardRows.length > 0 ? (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: '0',
+                          right: '0',
+                          background: '#FE5B65',
+                          color: 'white',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          minWidth: '20px',
+                          height: '20px',
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          borderRadius: '50%',
+                          border: '2px solid white',
+                          padding: '0 4px',
+                          pointerEvents: 'none',
+                        }}
+                      >
+                        {dashboardRows.length}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  {showNotifications ? (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '35px',
+                        right: '0',
+                        width: '250px',
+                        maxHeight: '400px',
+                        overflowY: 'auto',
+                        background: 'white',
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                        zIndex: '1000',
+                        padding: '5px',
                       }}
                     >
-                      Notifications
-                    </h6>
-                    <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
-                      {dashboardRows.length > 0 ? (
-                        dashboardRows.map((notification, index) => (
-                          <li
-                            key={notification.id || notification.emergency_id || index}
-                            style={{
-                              padding: '8px',
-                              fontSize: '13px',
-                              borderBottom: '1px solid #ddd',
-                              cursor: 'pointer',
-                              borderRadius: '5px',
-                              transition: 'background-color 0.2s ease',
-                            }}
-                            onMouseEnter={(event) => {
-                              event.currentTarget.style.backgroundColor = '#f8f9fa';
-                            }}
-                            onMouseLeave={(event) => {
-                              event.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                            onClick={() => handleNotificationClick(notification)}
-                          >
-                            <div style={{ fontWeight: 'bold', color: '#FE5B65' }}>
-                              {notification.emergency_id || notification.device_number}
-                            </div>
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                              {notification.type ||
-                                notification.nature_of_request ||
-                                'No incident type'}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#999' }}>
-                              {formatIncidentDateTimeLabel(notification)}
-                            </div>
+                      <h6
+                        style={{
+                          marginBottom: '10px',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        Notifications
+                      </h6>
+                      <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
+                        {dashboardRows.length > 0 ? (
+                          dashboardRows.map((notification, index) => (
+                            <li
+                              key={notification.id || notification.emergency_id || index}
+                              style={{
+                                padding: '8px',
+                                fontSize: '13px',
+                                borderBottom: '1px solid #ddd',
+                                cursor: 'pointer',
+                                borderRadius: '5px',
+                                transition: 'background-color 0.2s ease',
+                              }}
+                              onMouseEnter={(event) => {
+                                event.currentTarget.style.backgroundColor = '#f8f9fa';
+                              }}
+                              onMouseLeave={(event) => {
+                                event.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                              onClick={() => handleNotificationClick(notification)}
+                            >
+                              <div style={{ fontWeight: 'bold', color: '#FE5B65' }}>
+                                {notification.emergency_id || notification.device_number}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#666' }}>
+                                {notification.type ||
+                                  notification.nature_of_request ||
+                                  'No incident type'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#999' }}>
+                                {formatIncidentDateTimeLabel(notification)}
+                              </div>
+                            </li>
+                          ))
+                        ) : (
+                          <li style={{ padding: '8px', fontSize: '13px' }}>
+                            No new notifications
                           </li>
-                        ))
-                      ) : (
-                        <li style={{ padding: '8px', fontSize: '13px' }}>
-                          No new notifications
-                        </li>
-                      )}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
+                        )}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
+
+        {!alertSoundState.unlocked ? (
+          <div
+            className="mx-3 mt-3 p-3"
+            style={{
+              background: '#FFF5EA',
+              border: '1px solid #FE9431',
+              borderRadius: '14px',
+              color: '#FE9431',
+            }}
+          >
+            <strong>Alert sounds blocked.</strong> Click anywhere to enable alert sounds.
+          </div>
+        ) : null}
+
+        <HighPriorityAlertBanner
+          incident={activeHighPriorityNotification}
+          activeCount={unacknowledgedHighPriorityNotifications.length}
+          onOpenIncident={handleNotificationClick}
+          onAcknowledgeIncident={acknowledgeIncident}
+        />
+
         {renderContent()}
       </div>
       <EmergencyDetailsModal
