@@ -269,6 +269,17 @@ const Dashboard = () => {
     () => getOpenDashboardNotificationRows(notificationSource),
     [notificationSource]
   );
+  const recentDashboardNotifications = useMemo(
+    () => {
+      const sortedNotifications = [...dashboardRows].sort(sortNotificationsByRecency);
+      const latestTimestamp = getIncidentTimestampMs(sortedNotifications[0]);
+
+      return sortedNotifications.filter(
+        (notification) => getIncidentTimestampMs(notification) === latestTimestamp
+      );
+    },
+    [dashboardRows]
+  );
   const acknowledgedSignatureSet = useMemo(
     () => new Set(acknowledgedNotificationSignatures),
     [acknowledgedNotificationSignatures]
@@ -698,7 +709,7 @@ const Dashboard = () => {
                       }}
                       className="icon-hover"
                     />
-                    {dashboardRows.length > 0 ? (
+                    {recentDashboardNotifications.length > 0 ? (
                       <span
                         style={{
                           position: 'absolute',
@@ -719,7 +730,7 @@ const Dashboard = () => {
                           pointerEvents: 'none',
                         }}
                       >
-                        {dashboardRows.length}
+                        {recentDashboardNotifications.length}
                       </span>
                     ) : null}
                   </button>
@@ -750,8 +761,8 @@ const Dashboard = () => {
                         Notifications
                       </h6>
                       <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
-                        {dashboardRows.length > 0 ? (
-                          dashboardRows.map((notification, index) => (
+                        {recentDashboardNotifications.length > 0 ? (
+                          recentDashboardNotifications.map((notification, index) => (
                             <li
                               key={notification.id || notification.emergency_id || index}
                               style={{

@@ -83,6 +83,7 @@ describe('alertSound', () => {
       getAlertSoundState,
       initAlertSound,
       playAlert,
+      setAlertMuted,
       setAlertVolume,
       unlockAlertSound,
     } = await import('../lib/alertSound');
@@ -104,5 +105,9 @@ describe('alertSound', () => {
     expect(firstSource.stop).toHaveBeenCalledTimes(1);
     expect(secondSource.loop).toBe(true);
     expect(secondSource.start).toHaveBeenCalledTimes(1);
+
+    setAlertMuted(true);
+
+    expect(secondSource.stop).toHaveBeenCalledTimes(1);
   });
 });

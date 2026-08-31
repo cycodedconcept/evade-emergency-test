@@ -10,6 +10,7 @@ let ctx = null;
 let buffers = {};
 let unlocked = false;
 let activeSource = null;
+let playbackRequestId = 0;
 let initPromise = null;
 let volume = 1;
 let muted = false;
@@ -173,6 +174,10 @@ export const isAlertSoundMuted = () => muted;
 export const setAlertMuted = (nextMuted) => {
   muted = Boolean(nextMuted);
 
+  if (muted) {
+    stopAlert();
+  }
+
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(
       ALERT_SOUND_MUTED_STORAGE_KEY,
@@ -198,7 +203,7 @@ export const setAlertVolume = (nextVolume) => {
   return volume;
 };
 
-export const stopAlert = () => {
+const stopActiveSource = () => {
   if (!activeSource) {
     return;
   }
@@ -216,18 +221,32 @@ export const stopAlert = () => {
   } catch {}
 };
 
+export const stopAlert = () => {
+  // Invalidate a play request that may still be waiting for decoding or resume.
+  playbackRequestId += 1;
+  stopActiveSource();
+};
+
 export const playAlert = async ({
   variant = 'alert',
   loop = false,
   volume: nextVolume = 1,
 } = {}) => {
   const audioContext = ensureAudioContext();
+  const requestId = playbackRequestId + 1;
+  playbackRequestId = requestId;
+
+  stopActiveSource();
 
   if (!audioContext) {
     return false;
   }
 
   await initAlertSound();
+
+  if (requestId !== playbackRequestId) {
+    return false;
+  }
 
   if (audioContext.state === 'suspended') {
     try {
@@ -238,7 +257,9 @@ export const playAlert = async ({
     }
   }
 
-  stopAlert();
+  if (requestId !== playbackRequestId) {
+    return false;
+  }
 
   const buffer = buffers[variant];
 
@@ -264,6 +285,11 @@ export const playAlert = async ({
   activeSource = source;
 
   try {
+    if (requestId !== playbackRequestId) {
+      stopActiveSource();
+      return false;
+    }
+
     source.start(0);
     return true;
   } catch (error) {

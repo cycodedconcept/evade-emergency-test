@@ -234,6 +234,57 @@ describe('Dashboard notification details modal', () => {
     expect(screen.getByText('Notifications')).toBeInTheDocument();
   });
 
+  it('shows the complete most-recent notification batch in the bell dropdown', () => {
+    dashboardState = {
+      dashboard: {
+        dataItem: {
+          company: {
+            company_name: 'Evade Rescue',
+          },
+          notifications: [
+            {
+              id: 1,
+              emergency_id: 'EM-001',
+              device_number: 'DEV-1001',
+              type: 'Crash',
+              incident_status: 'Active',
+              date_time: '2026-08-17 10:00:00',
+            },
+            {
+              id: 2,
+              emergency_id: 'EM-002',
+              device_number: 'DEV-1002',
+              type: 'Fire',
+              incident_status: 'Active',
+              date_time: '2026-08-17 11:00:00',
+            },
+            {
+              id: 3,
+              emergency_id: 'EM-003',
+              device_number: 'DEV-1003',
+              type: 'Medical',
+              incident_status: 'Active',
+              date_time: '2026-08-17 11:00:00',
+            },
+          ],
+        },
+        liveDataItem: {},
+      },
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByText('2'));
+
+    expect(screen.getByText('EM-002')).toBeInTheDocument();
+    expect(screen.getByText('EM-003')).toBeInTheDocument();
+    expect(screen.queryByText('EM-001')).not.toBeInTheDocument();
+  });
+
   it('shows the blocked sound banner before audio has been unlocked', () => {
     render(
       <MemoryRouter initialEntries={['/dashboard']}>
