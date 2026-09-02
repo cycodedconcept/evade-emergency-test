@@ -44,6 +44,21 @@ const DASHBOARD_LIVE_REFRESH_INTERVAL_MS = 15000;
 const DASHBOARD_RATE_LIMIT_RETRY_MS = 180000;
 const ALERT_SOUND_DEBOUNCE_MS = 2000;
 const HIGH_PRIORITY_ALERT_TIMEOUT_MS = 60000;
+const ACKNOWLEDGED_NOTIFICATION_STORAGE_KEY = 'evade.acknowledged-notifications';
+
+const getStoredAcknowledgedNotificationSignatures = () => {
+  try {
+    const storedSignatures = JSON.parse(
+      localStorage.getItem(ACKNOWLEDGED_NOTIFICATION_STORAGE_KEY) || '[]'
+    );
+
+    return Array.isArray(storedSignatures)
+      ? storedSignatures.filter((signature) => typeof signature === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+};
 
 const getStoredToken = () => {
   const tokenItem = localStorage.getItem('item');
@@ -91,7 +106,7 @@ const Dashboard = () => {
     getBrowserNotificationPermission()
   );
   const [acknowledgedNotificationSignatures, setAcknowledgedNotificationSignatures] =
-    useState([]);
+    useState(getStoredAcknowledgedNotificationSignatures);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [notificationEmergency, setNotificationEmergency] = useState(null);
   const [notificationEmergencyLoading, setNotificationEmergencyLoading] =
@@ -269,21 +284,24 @@ const Dashboard = () => {
     () => getOpenDashboardNotificationRows(notificationSource),
     [notificationSource]
   );
-  const recentDashboardNotifications = useMemo(
-    () => {
-      const sortedNotifications = [...dashboardRows].sort(sortNotificationsByRecency);
-      const latestTimestamp = getIncidentTimestampMs(sortedNotifications[0]);
-
-      return sortedNotifications.filter(
-        (notification) => getIncidentTimestampMs(notification) === latestTimestamp
-      );
-    },
-    [dashboardRows]
-  );
   const acknowledgedSignatureSet = useMemo(
     () => new Set(acknowledgedNotificationSignatures),
     [acknowledgedNotificationSignatures]
   );
+  const unacknowledgedDashboardNotifications = useMemo(
+    () =>
+      dashboardRows.filter((notification) => {
+        const signature = buildIncidentNotificationSignature(notification);
+        return !signature || !acknowledgedSignatureSet.has(signature);
+      }),
+    [acknowledgedSignatureSet, dashboardRows]
+  );
+  const recentDashboardNotifications = useMemo(
+    () =>
+      [...unacknowledgedDashboardNotifications].sort(sortNotificationsByRecency),
+    [unacknowledgedDashboardNotifications]
+  );
+  const notificationBadgeCount = unacknowledgedDashboardNotifications.length;
   const unacknowledgedHighPriorityNotifications = useMemo(
     () =>
       dashboardRows
@@ -323,6 +341,22 @@ const Dashboard = () => {
       currentSignatures.filter((signature) => currentSignatureSet.has(signature))
     );
   }, [notificationSignatures]);
+
+  useEffect(() => {
+    try {
+      if (acknowledgedNotificationSignatures.length === 0) {
+        localStorage.removeItem(ACKNOWLEDGED_NOTIFICATION_STORAGE_KEY);
+        return;
+      }
+
+      localStorage.setItem(
+        ACKNOWLEDGED_NOTIFICATION_STORAGE_KEY,
+        JSON.stringify(acknowledgedNotificationSignatures)
+      );
+    } catch {
+      // A blocked storage API should not prevent responders from using the dashboard.
+    }
+  }, [acknowledgedNotificationSignatures]);
 
   const acknowledgeIncident = (incident) => {
     const signature = buildIncidentNotificationSignature(incident);
@@ -709,7 +743,7 @@ const Dashboard = () => {
                       }}
                       className="icon-hover"
                     />
-                    {recentDashboardNotifications.length > 0 ? (
+                    {notificationBadgeCount > 0 ? (
                       <span
                         style={{
                           position: 'absolute',
@@ -730,7 +764,7 @@ const Dashboard = () => {
                           pointerEvents: 'none',
                         }}
                       >
-                        {recentDashboardNotifications.length}
+                        {notificationBadgeCount}
                       </span>
                     ) : null}
                   </button>

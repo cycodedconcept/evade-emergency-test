@@ -234,7 +234,131 @@ describe('Dashboard notification details modal', () => {
     expect(screen.getByText('Notifications')).toBeInTheDocument();
   });
 
-  it('shows the complete most-recent notification batch in the bell dropdown', () => {
+  it('counts all open emergencies in the bell badge and excludes closed ones', () => {
+    dashboardState = {
+      dashboard: {
+        dataItem: {
+          company: {
+            company_name: 'Evade Rescue',
+          },
+          notifications: [
+            {
+              id: 1,
+              emergency_id: 'EM-001',
+              device_number: 'DEV-1001',
+              type: 'Crash',
+              incident_status: 'Active',
+              closed_status: 0,
+              date_time: '2026-08-17 10:00:00',
+            },
+            {
+              id: 2,
+              emergency_id: 'EM-002',
+              device_number: 'DEV-1002',
+              type: 'Fire',
+              incident_status: 'Closed',
+              closed_status: 1,
+              date_time: '2026-08-17 11:00:00',
+            },
+            {
+              id: 3,
+              emergency_id: 'EM-003',
+              device_number: 'DEV-1003',
+              type: 'Medical',
+              incident_status: 'Active',
+              closed_status: 0,
+              date_time: '2026-08-17 12:00:00',
+            },
+            {
+              id: 4,
+              emergency_id: 'EM-004',
+              device_number: 'DEV-1004',
+              type: 'Panic',
+              incident_status: 'Active',
+              closed_status: 0,
+              date_time: '2026-08-17 13:00:00',
+            },
+          ],
+        },
+        liveDataItem: {},
+      },
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    const notificationButton = screen.getByLabelText(/view emergency notifications/i);
+
+    expect(within(notificationButton).getByText('3')).toBeInTheDocument();
+    expect(within(notificationButton).queryByText('4')).not.toBeInTheDocument();
+  });
+
+  it('removes an opened emergency from the bell badge count', () => {
+    dashboardState = {
+      dashboard: {
+        dataItem: {
+          company: {
+            company_name: 'Evade Rescue',
+          },
+          notifications: [
+            {
+              id: 1,
+              emergency_id: 'EM-001',
+              device_number: 'DEV-1001',
+              type: 'Crash',
+              incident_status: 'Active',
+              date_time: '2026-08-17 11:00:00',
+            },
+            {
+              id: 2,
+              emergency_id: 'EM-002',
+              device_number: 'DEV-1002',
+              type: 'Fire',
+              incident_status: 'Active',
+              date_time: '2026-08-17 11:00:00',
+            },
+          ],
+        },
+        liveDataItem: {},
+      },
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    const notificationButton = screen.getByLabelText(/view emergency notifications/i);
+    expect(within(notificationButton).getByText('2')).toBeInTheDocument();
+
+    fireEvent.click(notificationButton);
+    fireEvent.click(screen.getByText('EM-001'));
+
+    expect(within(notificationButton).getByText('1')).toBeInTheDocument();
+  });
+
+  it('keeps acknowledged emergencies out of the bell after a page refresh', () => {
+    localStorage.setItem('evade.acknowledged-notifications', JSON.stringify(['1']));
+
+    render(
+      <MemoryRouter initialEntries={['/dashboard']}>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    const notificationButton = screen.getByLabelText(/view emergency notifications/i);
+
+    expect(within(notificationButton).queryByText('1')).not.toBeInTheDocument();
+
+    fireEvent.click(notificationButton);
+    expect(screen.getByText('No new notifications')).toBeInTheDocument();
+  });
+
+  it('shows all open emergencies in newest-first order in the bell dropdown', () => {
     dashboardState = {
       dashboard: {
         dataItem: {
@@ -278,11 +402,11 @@ describe('Dashboard notification details modal', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText('2'));
+    fireEvent.click(screen.getByLabelText(/view emergency notifications/i));
 
     expect(screen.getByText('EM-002')).toBeInTheDocument();
     expect(screen.getByText('EM-003')).toBeInTheDocument();
-    expect(screen.queryByText('EM-001')).not.toBeInTheDocument();
+    expect(screen.getByText('EM-001')).toBeInTheDocument();
   });
 
   it('shows the blocked sound banner before audio has been unlocked', () => {
